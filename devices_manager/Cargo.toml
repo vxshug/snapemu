@@ -1,0 +1,48 @@
+[package]
+name = "devices_manager"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+device_info.workspace = true
+bytes.workspace = true
+utils.workspace = true
+snap_config.workspace = true
+snap_model.workspace = true
+common_define.workspace = true
+async-trait.workspace = true
+arc-swap.workspace = true
+clap = { workspace = true, features = [ "derive", "env" ] }
+base64.workspace = true
+strum = { workspace = true, features = ["derive"] }
+lorawan.workspace = true
+tokio =  { workspace = true, features = ["full"]}
+tokio-stream = { workspace = true, features = ["sync"]}
+openssl = { workspace = true, features = ["vendored"] }
+redis = { workspace = true, features = ["tokio-comp"] }
+sea-orm = { workspace = true, features = [ "sqlx-postgres", "runtime-tokio-native-tls", "macros", "debug-print" ] }
+deadpool-redis.workspace = true
+deadpool.workspace = true
+redis-macros.workspace = true
+derive_more = { workspace = true, features = ["from"] }
+rquickjs = { workspace = true, features = ["parallel"]}
+serde = { workspace = true, features=["derive"]}
+serde_json.workspace = true
+generic-array.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+derive-new.workspace = true
+rumqttc.workspace = true
+
+aes.workspace = true
+cmac.workspace = true
+ctr.workspace = true
+const_format.workspace = true
+chrono.workspace = true
+hex.workspace = true
+rand.workspace = true
+once_cell.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

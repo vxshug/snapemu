@@ -1,0 +1,286 @@
+{
+  "$vuetify": {
+    "badge": "Badge",
+    "close": "Close",
+    "open": "Open",
+    "save":"Save",
+    "dataIterator": {
+      "noResultsText": "No matching records found",
+      "loadingText": "Loading items..."
+    },
+    "dataTable": {
+      "itemsPerPageText": "Rows per page:",
+      "ariaLabel": {
+        "sortDescending": "Sorted descending.",
+        "sortAscending": "Sorted ascending.",
+        "sortNone": "Not sorted.",
+        "activateNone": "Activate to remove sorting.",
+        "activateDescending": "Activate to sort descending.",
+        "activateAscending": "Activate to sort ascending."
+      },
+      "sortBy": "Sort by"
+    },
+    "dataFooter": {
+      "itemsPerPageText": "Items per page:",
+      "itemsPerPageAll": "All",
+      "nextPage": "Next page",
+      "prevPage": "Previous page",
+      "firstPage": "First page",
+      "lastPage": "Last page",
+      "pageText": "{0}-{1} of {2}"
+    },
+    "dateRangeInput": {
+      "divider": "to"
+    },
+    "datePicker": {
+      "ok": "OK",
+      "cancel": "Cancel",
+      "range": {
+        "title": "Select dates",
+        "header": "Enter dates"
+      },
+      "title": "Select date",
+      "header": "Enter date",
+      "input": {
+        "placeholder": "Enter date"
+      }
+    },
+    "noDataText": "No data available",
+    "carousel": {
+      "prev": "Previous visual",
+      "next": "Next visual",
+      "ariaLabel": {
+        "delimiter": "Carousel slide {0} of {1}"
+      }
+    },
+    "calendar": {
+      "moreEvents": "{0} more"
+    },
+    "input": {
+      "clear": "Clear {0}",
+      "prependAction": "{0} prepended action",
+      "appendAction": "{0} appended action",
+      "otp": "Please enter OTP character {0}"
+    },
+    "fileInput": {
+      "counter": "{0} files",
+      "counterSize": "{0} files ({1} in total)"
+    },
+    "timePicker": {
+      "am": "AM",
+      "pm": "PM"
+    },
+    "pagination": {
+      "ariaLabel": {
+        "root": "Pagination Navigation",
+        "next": "Next page",
+        "previous": "Previous page",
+        "page": "Go to page {0}",
+        "currentPage": "Page {0}, Current page",
+        "first": "First page",
+        "last": "Last page"
+      }
+    },
+    "stepper": {
+      "next": "Next",
+      "prev": "Previous"
+    },
+    "rating": {
+      "ariaLabel": {
+        "item": "Rating {0} of {1}"
+      }
+    },
+    "loading": "Loading...",
+    "infiniteScroll": {
+      "loadMore": "Load more",
+      "empty": "No more"
+    }
+  },
+  "error": {
+    "title": "warning",
+    "login_timeout": "login timeout",
+    "error": "Server internal error",
+    "go_login": "Login"
+  },
+  "page": {
+    "common": {
+      "cancel": "cancel",
+      "confirm": "confirm"
+    },
+    "login": {
+      "login": "Log In",
+      "success": "login successfully",
+      "signup": "Sign In",
+      "forget": "forget the password",
+      "username": "Username",
+      "username_hint": "The user name can contain only 4 to 16 characters. The characters a-z A-Z 0-9 _ - are allowed",
+      "password": "Password",
+      "password_hint": "The password must contain a special character",
+      "password_confirm": "confirm password",
+      "email": "Email",
+      "email_hint": "email format error",
+      "empty_username":"The user name cannot be empty",
+      "empty_password":"The password cannot be empty"
+    },
+    "user": {
+      "login": "Log In",
+      "wait": "Waiting for activation",
+      "verify": "Activate email"
+    },
+    "signup": {
+      "password_confirm_hint": "Password mismatch"
+    },
+    "dashboard":{
+      "password": "Changing Password",
+      "picture": "Profile Picture",
+      "logout": "log out",
+      "overview":{
+        "welcome": "Welcome to snapemu iot platform",
+        "overview":"overview",
+        "device":"device",
+        "integration": "integration",
+        "group":"group",
+        "device_count": "quantity of device"
+      },
+      "group":{
+        "create":"Create",
+        "cancel":"cancel",
+        "creat_group":"Create",
+        "include_device":"include",
+        "add_device":"add device",
+        "remove_device":"remove",
+        "creat_devices":"Create a device",
+        "group_name":"group name",
+        "placeholder_name":"Create a new group name",
+        "name":"name",
+        "description":"description",
+        "created_time":"creation time",
+        "actions":"actions",
+        "device_count": "quantity of device"
+      },
+      "integration": {
+        "create": "Create Token",
+        "device": "device",
+        "name": "name",
+        "type": "type",
+        "group": "device group",
+        "username": "user name",
+        "password": "password",
+        "enable": "enable",
+        "client_id": "client id"
+      },
+      "device":{
+        "info": {
+          "info": "info",
+          "active_time": "info"
+        },
+        "logs": {
+          "logs": "logs"
+        },
+        "downlink": {
+          "downlink": "downlink",
+          "send": "send",
+          "save": "save",
+          "delete": "delete",
+          "edit": "edit",
+          "in_edit": "editing",
+          "cancel": "cancel"
+        },
+        "decode": {
+          "decode": "decode",
+          "data": "data",
+          "test": "test script",
+          "save_script": "save script",
+          "apply_script": "apply script",
+          "add_script": "add script",
+          "cancel_script": "cancel script",
+          "test_script": "test script",
+          "del_script": "delete script",
+          "clone_script": "clone script",
+          "script_name": "name",
+          "add_map": "add map",
+          "data_name": "data name",
+          "data_unit": "data unit",
+          "data_type": "data type",
+          "data_id": "data id"
+        },
+        "addpage": {
+          "submit": "submit",
+          "clear": "clear",
+          "name": "device name",
+          "description": "description",
+          "group": "group",
+          "region": "region",
+          "device_type": "device type",
+          "eui": "gateway eui",
+          "snap_eui": "eui",
+          "snap_key": "key",
+          "join_type": "join type",
+          "dev_addr": "dev addr",
+          "app_key": "App Key",
+          "app_eui": "App eui",
+          "dev_eui": "Dev eui",
+          "app_skey": "App Skey",
+          "nwk_skey": "Nwk Skey"
+        },
+        "show": {
+          "region": "region",
+          "more": "more info",
+          "hide": "hide",
+          "show_data": "Display graphics",
+          "settings": "device parameter list",
+          "timer": "timer",
+          "io": "IO",
+          "detail": "detail"
+        },
+        "time": {
+          "last_active": "Last activity {time}",
+          "timeout": "Long ago",
+          "day": "{time} Days before",
+          "hour": "{time} Hours before",
+          "minute": "{time} Minutes ago",
+          "second": "{time} Seconds before",
+          "never": "unactivated"
+        },
+        "settings": {
+          "eui": "eui",
+          "region": "region",
+          "join_type": "join type",
+          "app_eui": "App Eui",
+          "dev_eui": "Dev Eui",
+          "app_skey": "App Skey",
+          "app_key": "App Key",
+          "nwk_skey": "Nwk Skey",
+          "dev_addr": "device address",
+          "class_c": "support ClassC",
+          "class_b": "support ClassB"
+        },
+        "index": "data",
+        "name": "name",
+        "id": "id",
+        "device_count": "quantity of device",
+        "online_type": "state",
+        "device_info": "device info",
+        "top": "top",
+        "delete": "delete",
+        "battery": "battery",
+        "online": "online",
+        "offline": "offline",
+        "add": "Create a new device",
+        "delete_dialog": "Are you sure you would like to delete {0}?",
+        "description": "description",
+        "product_type": "product type",
+        "device_type": "device type",
+        "created_time": "Device creation time",
+        "active_time": "Device online time",
+        "groups":"group",
+        "manufacturer":"manufacturer",
+        "frequency":"frequency",
+        "dutycyle":"dutycyle",
+        "join_type":"join type",
+        "mode":"mode",
+        "eui_hint":"The value must be a hexadecimal number"
+      }
+    }
+  }
+}

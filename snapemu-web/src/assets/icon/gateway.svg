@@ -1,0 +1,23 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="ic_Register a gateway">
+<rect id="Rectangle 4" x="16" y="118" width="148" height="56" rx="12" stroke="#3378FF" stroke-width="4"/>
+<path id="Vector 1" d="M131.75 59.9978C131.75 58.8933 130.855 57.9978 129.75 57.9978C128.645 57.9978 127.75 58.8933 127.75 59.9978H131.75ZM127.75 59.9978V89.0022H131.75V59.9978H127.75Z" fill="#3378FF"/>
+<circle id="Ellipse 1" cx="41" cy="146" r="6" fill="#3378FF"/>
+<g id="Group 427318802">
+<path id="Vector 2" d="M39 37V58" stroke="#3378FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector 3" d="M39 76V97" stroke="#3378FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Ellipse 5" cx="39" cy="67" r="3" fill="#3378FF"/>
+</g>
+<g id="Group 427318801">
+<path id="Vector 4" d="M60 24V45" stroke="#3378FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector 5" d="M60 63V84" stroke="#3378FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle id="Ellipse 6" cx="60" cy="54" r="3" fill="#3378FF"/>
+<circle id="Ellipse 7" cx="60" cy="93" r="3" fill="#3378FF"/>
+</g>
+<rect id="Rectangle 5" x="67" y="144" width="73" height="4" rx="2" fill="#3378FF"/>
+<path id="Rectangle 6" d="M145 119V104.5C145 95.9396 138.06 89 129.5 89V89C120.94 89 114 95.9396 114 104.5V119" stroke="#3378FF" stroke-width="4"/>
+<path id="Ellipse 2" d="M118 57C120.297 52.833 124.809 50 130 50C135.191 50 139.703 52.833 142 57" stroke="#3378FF" stroke-width="4" stroke-linecap="round"/>
+<path id="Ellipse 3" d="M110 45C113.828 38.4519 121.348 34 130 34C138.652 34 146.172 38.4519 150 45" stroke="#3378FF" stroke-width="4" stroke-linecap="round"/>
+<path id="Ellipse 4" d="M103 32C108.167 23.0708 118.32 17 130 17C141.68 17 151.833 23.0708 157 32" stroke="#3378FF" stroke-width="4" stroke-linecap="round"/>
+</g>
+</svg>

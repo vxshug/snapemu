@@ -1,0 +1,285 @@
+{
+  "$vuetify": {
+    "badge": "徽章",
+    "close": "关闭",
+    "open":"打开",
+    "save":"保存",
+    "dataIterator": {
+      "noResultsText": "没有符合条件的结果",
+      "loadingText": "加载中……"
+    },
+    "dataTable": {
+      "itemsPerPageText": "每页数目：",
+      "ariaLabel": {
+        "sortDescending": "：降序排列。",
+        "sortAscending": "：升序排列。",
+        "sortNone": "：未排序。",
+        "activateNone": "点击以移除排序。",
+        "activateDescending": "点击以降序排列。",
+        "activateAscending": "点击以升序排列。"
+      },
+      "sortBy": "排序方式"
+    },
+    "dataFooter": {
+      "itemsPerPageText": "每页数目：",
+      "itemsPerPageAll": "全部",
+      "nextPage": "下一页",
+      "prevPage": "上一页",
+      "firstPage": "首页",
+      "lastPage": "尾页",
+      "pageText": "{0}-{1} 共 {2}"
+    },
+    "dateRangeInput": {
+      "divider": "to"
+    },
+    "datePicker": {
+      "ok": "OK",
+      "cancel": "取消",
+      "range": {
+        "title": "Select dates",
+        "header": "Enter dates"
+      },
+      "title": "Select date",
+      "header": "Enter date",
+      "input": {
+        "placeholder": "Enter date"
+      }
+    },
+    "noDataText": "没有数据",
+    "carousel": {
+      "prev": "上一张",
+      "next": "下一张",
+      "ariaLabel": {
+        "delimiter": "Carousel slide {0} of {1}"
+      }
+    },
+    "calendar": {
+      "moreEvents": "还有 {0} 项"
+    },
+    "input": {
+      "clear": "Clear {0}",
+      "prependAction": "{0} prepended action",
+      "appendAction": "{0} appended action",
+      "otp": "Please enter OTP character {0}"
+    },
+    "fileInput": {
+      "counter": "{0} 个文件",
+      "counterSize": "{0} 个文件（共 {1}）"
+    },
+    "timePicker": {
+      "am": "AM",
+      "pm": "PM"
+    },
+    "pagination": {
+      "ariaLabel": {
+        "root": "分页导航",
+        "next": "下一页",
+        "previous": "上一页",
+        "page": "转到页面 {0}",
+        "currentPage": "当前页 {0}",
+        "first": "First page",
+        "last": "Last page"
+      }
+    },
+    "stepper": {
+      "next": "Next",
+      "prev": "Previous"
+    },
+    "rating": {
+      "ariaLabel": {
+        "item": "Rating {0} of {1}"
+      }
+    },
+    "loading": "Loading...",
+    "infiniteScroll": {
+      "loadMore": "Load more",
+      "empty": "No more"
+    }
+  },
+  "error": {
+    "title": "提示",
+    "login_timeout": "登录超时",
+    "error": "服务器内部错误",
+    "go_login": "返回登录页面"
+  },
+  "page": {
+    "common": {
+      "cancel": "取消",
+      "confirm": "确定"
+    },
+    "login": {
+        "login": "登录",
+        "success": "登录成功",
+        "signup": "注册",
+        "forget": "忘记密码",
+        "username": "用户名",
+        "username_hint": "用户名只能包含4-16个字符,允许字符a-z A-Z 0-9 _ -",
+        "password": "密码",
+        "password_hint": "密码必须包含一个特殊字符",
+        "password_confirm": "确认密码",
+        "email": "邮箱",
+        "email_hint": "邮箱格式错误",
+        "empty_username":"用户名不能为空",
+        "empty_password":"密码不能为空"
+    },
+    "user": {
+      "login": "去登录",
+      "wait": "等待激活",
+      "verify": "激活邮箱"
+    },
+    "signup": {
+      "password_confirm_hint": "密码不匹配"
+    },
+    "dashboard":{
+      "password": "修改用户密码",
+      "picture": "修改用户头像",
+      "logout": "退出",
+      "overview":{
+        "welcome": "欢迎使用snapemu物联网平台",
+        "overview":"概况",
+        "device":"设备",
+        "integration": "集成",
+        "group":"设备组",
+        "device_count": "设备数量"
+      },
+      "group":{
+        "create":"创建组",
+        "cancel":"取消",
+        "creat_group":"创建组",
+        "include_device":"包含",
+        "add_device":"添加设备",
+        "creat_devices":"创建设备",
+        "remove_device":"移除",
+        "group_name":"组名",
+        "placeholder_name":"创建一个新的组名",
+        "name":"名称",
+        "description":"设备组详情",
+        "created_time":"创建时间",
+        "actions":"操作",
+        "device_count": "设备数量"
+      },
+      "integration": {
+        "create": "创建Token",
+        "device": "设备",
+        "name": "名称",
+        "type": "类型",
+        "group": "设备组",
+        "username": "用户名",
+        "password": "用户密码",
+        "enable": "启用",
+        "client_id": "客户端ID"
+      },
+      "device":{
+        "info": {
+          "info": "详情",
+          "active_time": "设备在线时间"
+        },
+        "logs": {
+          "logs": "日志"
+        },
+        "downlink": {
+          "downlink": "下行",
+          "send": "发送",
+          "save": "保存",
+          "delete": "删除",
+          "edit": "编辑",
+          "in_edit": "编辑中",
+          "cancel": "取消"
+        },
+        "decode": {
+          "decode": "解码",
+          "data": "数据",
+          "test": "测试脚本",
+          "save_script": "保存脚本",
+          "apply_script": "应用脚本",
+          "add_script": "添加脚本",
+          "cancel_script": "撤销脚本",
+          "test_script": "测试脚本",
+          "del_script": "删除脚本",
+          "clone_script": "克隆脚本",
+          "script_name": "名称",
+          "add_map": "添加映射",
+          "data_name": "数据名称",
+          "data_unit": "数据单位",
+          "data_type": "数据类型",
+          "data_id": "数据id"
+        },
+        "addpage": {
+          "submit": "添加",
+          "clear": "清除",
+          "name": "设备名称",
+          "description": "设备描述",
+          "group": "设备组",
+          "region": "地区",
+          "device_type": "设备类型",
+          "eui": "网关eui",
+          "snap_eui": "eui",
+          "snap_key": "密钥",
+          "join_type": "入网方式",
+          "dev_addr": "设备地址",
+          "app_key": "App Key",
+          "app_eui": "App eui",
+          "dev_eui": "Dev eui",
+          "app_skey": "App Skey",
+          "nwk_skey": "Nwk Skey"
+        },
+        "show": {
+          "region": "地区",
+          "more": "更多信息",
+          "hide": "隐藏",
+          "show_data": "显示图形",
+          "settings": "设备参数",
+          "timer": "定时器",
+          "io": "IO",
+          "detail": "详情"
+        },
+        "time": {
+          "last_active": "最后一次活动 {time}",
+          "timeout": "许久之前",
+          "day": "{time} 天之前",
+          "hour": "{time} 小时之前",
+          "minute": "{time} 分钟之前",
+          "second": "{time} 秒之前",
+          "never": "未激活"
+        },
+        "settings": {
+          "eui": "eui",
+          "region": "地区",
+          "join_type": "入网方式",
+          "app_eui": "App Eui",
+          "dev_eui": "Dev Eui",
+          "app_skey": "App Skey",
+          "app_key": "App Key",
+          "nwk_skey": "Nwk Skey",
+          "dev_addr": "设备地址",
+          "class_c": "支持ClassC",
+          "class_b": "支持ClassB"
+        },
+        "index": "数据",
+        "name": "名称",
+        "device_count": "设备数量",
+        "online_type": "状态",
+        "device_info": "设备信息",
+        "top": "设备置顶",
+        "delete": "删除",
+        "battery": "电池状态",
+        "online": "在线",
+        "offline": "离线",
+        "add": "创建新设备",
+        "delete_dialog": "确定删除设备 {0}",
+        "description": "详情",
+        "product_type": "产品类型",
+        "device_type": "设备类型",
+        "created_time": "设备创建时间",
+        "active_time": "设备在线时间",
+        "groups":"组类",
+        "manufacturer":"制造商",
+        "frequency":"频率",
+        "dutycyle":"周期",
+        "join_type":"添加类型",
+        "mode":"模式",
+        "eui_hint":"eui必须为十六进制数"
+      }
+    }
+  }
+}
