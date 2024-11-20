@@ -170,9 +170,9 @@ impl LoRaNode {
     }
 
     pub(crate) async fn dispatch_task_now(&self, mut task: DownloadData) -> DeviceResult {
+        let _ = task.up_count.insert(self.info.up_count);
         if self.info.class_c {
             if let Some(gateway_eui) = self.info.gateway {
-                let _ = task.up_count.insert(self.info.up_count);
                 let gateway = LoRaGateManager::get_gate(gateway_eui).await?;
                 let info = gateway.info().await?;
                 let builder = RespDataClassCBuilder::new(&self.info, &info);
@@ -226,32 +226,31 @@ impl LoRaNode {
             count, self.gw.eui
         );
         let eui = self.info.dev_eui;
-        let task = GLOBAL_DOWNLOAD.get(eui, count);
+        let task = GLOBAL_DOWNLOAD.pop(eui);
 
         match task {
             Some(task) => {
+                tracing::info!("down data: {:?}", task.bytes);
                 let ack = false;
                 let resp = task.clone();
-                if let Some(forward) = task.forward {
-                    if let Some(pre_up_count) = task.up_count {
-                        debug!("pull_task: get pre_up_count: {pre_up_count}, count: {count}");
-                        self.wait().await;
-                        self.update_down_count().await?;
-                        let builder = RespDataBuilder::new(&self.info, push_data);
-                        if ack {
-                            let ack = builder.build_ack(&[])?;
-                            self.down_link(ack).await?;
-                        } else {
-                            let down = builder.build_with_task(
-                                &resp,
-                                rand::random(),
-                                push_data.version,
-                            )?;
-                            self.down_link(down).await?;
-                        }
-                        let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
-                        LoRaNodeEvent::down_link(push_data, &self.info, Some(&task), &mut conn).await?;
+                if let Some(pre_up_count) = task.up_count {
+                    debug!("pull_task: get pre_up_count: {pre_up_count}, count: {count}");
+                    self.wait().await;
+                    self.update_down_count().await?;
+                    let builder = RespDataBuilder::new(&self.info, push_data);
+                    if ack {
+                        let ack = builder.build_ack(&[])?;
+                        self.down_link(ack).await?;
+                    } else {
+                        let down = builder.build_with_task(
+                            &resp,
+                            rand::random(),
+                            push_data.version,
+                        )?;
+                        self.down_link(down).await?;
                     }
+                    let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
+                    LoRaNodeEvent::down_link(push_data, &self.info, Some(&task), &mut conn).await?;
                 }
             }
             None => {

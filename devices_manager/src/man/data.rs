@@ -628,19 +628,12 @@ impl DownloadDataCache {
             .and_then(|v| v.front())
             .is_some()
     }
-    pub fn get(&self, eui: Eui, up_count: u32 ) -> Option<DownloadData> {
+    pub fn pop(&self, eui: Eui) -> Option<DownloadData> {
         let mut d = self.data.lock().unwrap();
         d.get_mut(&eui)
             .and_then(|v| {
-                if let Some(e) = v.front_mut() { 
-                    e.data.up_count.get_or_insert(up_count);
-                    if e.count == 5 {
-                        warn!("The number of retransmissions exceeded, message_id: {}", e.data.id);
-                        v.pop_front();
-                        return v.front().map(|e|e.data.clone());
-                    }
-                }
-                v.front().map(|e|e.data.clone())
+                v.pop_front()
+                    .map(|e| e.data)
             } )
     }
 
