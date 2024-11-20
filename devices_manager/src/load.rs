@@ -55,12 +55,21 @@ pub struct DeviceConfigInner {
     pub lorawan: LoRaConfig
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug)]
 pub struct LoRaConfig {
     #[serde(default="_default_lora_host")]
     pub host: String,
     #[serde(default="_default_lora_port")]
     pub port: u16,
+}
+
+impl Default for LoRaConfig {
+    fn default() -> Self {
+        Self {
+            host: _default_lora_host(),
+            port: _default_lora_port(),
+        }
+    }
 }
 
 fn _default_lora_host() -> String {

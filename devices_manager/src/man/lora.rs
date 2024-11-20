@@ -480,7 +480,7 @@ impl LoRaGate {
         if self.info.version != version {
             let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
             self.info.version = version;
-            conn.hset(self.key.as_str(), GatewayInfo::down(), version).await?;
+            conn.hset(self.key.as_str(), GatewayInfo::version(), version).await?;
         }
         Ok(())
     }

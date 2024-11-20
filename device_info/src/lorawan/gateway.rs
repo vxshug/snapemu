@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use common_define::db::Eui;
 use common_define::Id;
 use derive_new::new;
@@ -53,6 +54,15 @@ impl GatewayInfo {
     ) -> redis::RedisResult<Option<Timestamp>> {
         let k = Self::eui_key(eui);
         redis::Cmd::hset(&k, Self::a(), Timestamp::now()).query_async(con).await
+    }
+
+    pub async fn update_download<C: redis::aio::ConnectionLike>(
+        eui: Eui,
+        addr: SocketAddr,
+        con: &mut C,
+    ) -> redis::RedisResult<Option<Timestamp>> {
+        let k = Self::eui_key(eui);
+        redis::Cmd::hset(&k, Self::down(), addr.to_string()).query_async(con).await
     }
     pub async fn load_active_time<C: redis::aio::ConnectionLike>(
         eui: Eui,
