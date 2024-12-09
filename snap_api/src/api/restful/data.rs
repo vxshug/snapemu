@@ -2,22 +2,38 @@ use crate::error::{ApiResponseResult};
 use crate::service::data::query::{DataDeviceOneResponseWrap, DataDuration, DataResponseWrap};
 use crate::service::data::DataService;
 use axum::routing::get;
-use axum::{Router};
 use axum::extract::State;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use common_define::Id;
 use crate::api::SnPath;
 use crate::{get_current_user, AppState};
 use crate::service::device::DeviceService;
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
-        .route("/:device/hour", get(get_hour_data))
-        .route("/:device/day", get(get_day_data))
-        .route("/:device/week", get(get_week_data))
-        .route("/:device/last", get(get_last_data))
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(get_hour_data))
+        .routes(routes!(get_day_data))
+        .routes(routes!(get_week_data))
+        .routes(routes!(get_last_data))
         // .route("/:device/range", get(get_range_data))
 }
 
+/// Get 1 hour of data
+#[utoipa::path(
+    method(get),
+    path = "/{id}/hour",
+    params(
+            ("id" = i32, Path, description = "Todo database id")
+    ),
+    security(
+        (), // <-- make optional authentication
+    ),
+    responses(
+        (status = OK, description = "Success", body = str, content_type = "text/plain")
+    ),
+    tag = crate::DATA_TAG
+)]
 async fn get_hour_data(
     State(state): State<AppState>,
     SnPath(device): SnPath<Id>,
@@ -27,6 +43,22 @@ async fn get_hour_data(
     let data = DataService::query_duration_data(device, device_db.script, DataDuration::Hour, &state).await?;
     Ok(data.into())
 }
+
+/// Get 1 day of data
+#[utoipa::path(
+    method(get),
+    path = "/{id}/day",
+    params(
+            ("id" = i32, Path, description = "Todo database id")
+    ),
+    security(
+        (), // <-- make optional authentication
+    ),
+    responses(
+        (status = OK, description = "Success", body = str, content_type = "text/plain")
+    ),
+    tag = crate::DATA_TAG
+)]
 async fn get_day_data(
     State(state): State<AppState>,
     SnPath(device): SnPath<Id>,
@@ -37,6 +69,21 @@ async fn get_day_data(
     Ok(data.into())
 }
 
+/// Get 1 week of data
+#[utoipa::path(
+    method(get),
+    path = "/{id}/week",
+    params(
+            ("id" = i32, Path, description = "Todo database id")
+    ),
+    security(
+        (), // <-- make optional authentication
+    ),
+    responses(
+        (status = OK, description = "Success", body = str, content_type = "text/plain")
+    ),
+    tag = crate::DATA_TAG
+)]
 async fn get_week_data(
     State(state): State<AppState>,
     SnPath(device): SnPath<Id>,
@@ -47,7 +94,21 @@ async fn get_week_data(
     Ok(data.into())
 }
 
-
+/// Get the last data
+#[utoipa::path(
+    method(get),
+    path = "/{id}/last",
+    params(
+            ("id" = i32, Path, description = "Todo database id")
+    ),
+    security(
+        (), // <-- make optional authentication
+    ),
+    responses(
+        (status = OK, description = "Success", body = str, content_type = "text/plain")
+    ),
+    tag = crate::DATA_TAG
+)]
 async fn get_last_data(
     State(state): State<AppState>,
     SnPath(device): SnPath<Id>,

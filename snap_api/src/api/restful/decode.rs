@@ -1,18 +1,29 @@
 use axum::{Router};
 use axum::extract::State;
 use axum::routing::{delete, post};
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use common_define::Id;
 use crate::api::{SnJson, SnPath};
 use crate::error::ApiResponseResult;
 use crate::{get_current_user, AppState};
 use crate::service::decode::{DecodeService, ScriptRequest};
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
-        .route("/", post(new_script).get(list_script))
-        .route("/:id", delete(delete_script))
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(new_script, list_script))
+        .routes(routes!(delete_script))
 }
 
+/// Create JS script
+#[utoipa::path(
+    method(post),
+    path = "",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DECODE_TAG
+)]
 async fn new_script(
     State(state): State<AppState>,
     SnJson(req): SnJson<ScriptRequest>
@@ -25,6 +36,16 @@ async fn new_script(
     ).await?;
     Ok(script.into())
 }
+
+/// Get all JS scripts
+#[utoipa::path(
+    method(get),
+    path = "",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DECODE_TAG
+)]
 async fn list_script(
     State(state): State<AppState>,
 ) -> ApiResponseResult<Vec<ScriptRequest>> {
@@ -37,7 +58,15 @@ async fn list_script(
     Ok(s.into())
 }
 
-
+/// Delete JS scripts
+#[utoipa::path(
+    method(delete),
+    path = "/{id}",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DECODE_TAG
+)]
 async fn delete_script(
     State(state): State<AppState>,
     SnPath(id): SnPath<Id>

@@ -16,6 +16,10 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing::{info, warn};
+use utoipa::{Modify, OpenApi};
+use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_scalar::{Scalar, Servable};
 use common_define::db::{SnapProductInfoEntity};
 use common_define::event::DeviceEvent;
 use snap_config::SnapConfig;
@@ -66,15 +70,46 @@ struct AppState {
     redis: RedisClient
 }
 
+const USER_TAG: &str = "user";
+const DEVICE_TAG: &str = "device";
+const ADMIN_TAG: &str = "admin";
+const DATA_TAG: &str = "data";
+const DECODE_TAG: &str = "decode";
 
-async fn graphiql() -> impl IntoResponse {
-    Html(
-        GraphiQLSource::build()
-            .endpoint("/graphql")
-            .subscription_endpoint("/ws")
-            .finish(),
-    )
+struct AdminSecurityAddon;
+
+impl Modify for AdminSecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "Authorization",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .bearer_format("JWT")
+                        .build(),
+                ),
+            )
+        }
+    }
 }
+
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    tags(
+        (name = USER_TAG, description = "User API endpoints"),
+        (name = DEVICE_TAG, description = "Device API endpoints"),
+        (name = DATA_TAG, description = "Data API endpoints"),
+        (name = DECODE_TAG, description = "Decode API endpoints"),
+        (name = ADMIN_TAG, description = "Admin API endpoints")
+    ),
+    security(
+        ("Authorization" = []),
+    ),
+    modifiers(&AdminSecurityAddon),
+)]
+struct ApiDoc;
+
 snap_i18n::i18n!("locales");
 #[macro_export]
 #[allow(clippy::crate_in_macro_def)]
@@ -141,8 +176,14 @@ pub async fn run(config_path: String, env_prefix: String) {
     GLOBAL_PRODUCT_NAME.replace(products);
 
     let fs = Router::new().nest_service("/", ServeDir::new("assets"));
-    let app = Router::new()
-        .nest("/api", restful::router())
+    let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
+        .nest("/api/v1", restful::router())
+        .split_for_parts();
+    let router = if config.api.openapi {
+        router
+            .merge(Scalar::with_url("/api/scalar", api))
+    } else { router };
+    let app = router
         .nest("/assets", fs)
         .layer(Extension(redis_pool))
         .layer(Extension(event))
@@ -181,7 +222,4 @@ async fn accept_language(request: Request<axum::body::Body>, next: Next) -> Resp
     run_with_lang(lang, next.run(request)).await
 }
 
-fn set_log() {
-    
-}
 

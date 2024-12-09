@@ -13,26 +13,26 @@ use crate::man::user_status::UserStatus;
 use crate::service::decode::DecodeService;
 use crate::service::device::DeviceService;
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, utoipa::ToSchema)]
 pub struct UserInfo {
     pub username: String,
     pub password: String,
     pub email: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, utoipa::ToSchema)]
 pub struct UserReset {
     pub email: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, utoipa::ToSchema)]
 pub struct UserResetPassword {
     pub email: String,
     pub code: String,
     pub password: String
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, utoipa::ToSchema)]
 pub struct UserDelete {
     pub email: String,
     pub code: String,

@@ -26,14 +26,14 @@ struct UserQuery {
     page: Option<u64>,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct UserPages {
     page: u64,
     count: u64,
     users: Vec<UserPageItem>,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct UserPageItem {
     pub id: Id,
     pub u_id: uuid::Uuid,
@@ -46,7 +46,7 @@ struct UserPageItem {
     pub create_time: Timestamp,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct UserInfo {
     pub id: Id,
     pub u_id: uuid::Uuid,
@@ -60,7 +60,7 @@ struct UserInfo {
     pub create_time: Timestamp,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct UserGroup {
     pub id: Id,
     pub name: String,
@@ -70,7 +70,7 @@ struct UserGroup {
     pub create_time: Timestamp,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct UserDevice {
     pub id: Id,
     pub eui: Eui,
@@ -86,9 +86,6 @@ struct UserDevice {
 #[openapi(
     paths(get_all_users,get_user_info),
     tags((name = "user", description = "User control api")),
-    components(schemas(
-        UserPages,
-    ))
 )]
 pub struct UserApi;
 
@@ -101,7 +98,7 @@ pub struct UserApi;
         UserQuery,
     ),
     responses(
-            (status = 0, description = "user page", body = UserPages),
+            (status = 0, description = "user page"),
     )
 )]
 async fn get_all_users(
@@ -147,7 +144,7 @@ async fn get_all_users(
         ("id", description = "User id"),
     ),
     responses(
-            (status = 0, description = "user page", body = UserPages),
+            (status = 0, description = "user page"),
     )
 )]
 async fn get_user_info(

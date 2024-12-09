@@ -4102,6 +4102,7 @@ dependencies = [
  "tracing",
  "utils",
  "utoipa",
+ "utoipa-axum",
  "utoipa-scalar",
  "uuid",
 ]
@@ -5129,9 +5130,9 @@ dependencies = [
 
 [[package]]
 name = "utoipa"
-version = "5.0.0-alpha.1"
+version = "5.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c082de846a4d434a9dcfe3358dbe4a0aa5d4f826c3af29cdbd97404e1ffe71f4"
+checksum = "514a48569e4e21c86d0b84b5612b5e73c0b2cf09db63260134ba426d4e8ea714"
 dependencies = [
  "indexmap 2.2.6",
  "serde",
@@ -5140,10 +5141,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "utoipa-gen"
-version = "5.0.0-alpha.1"
+name = "utoipa-axum"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84a71c23e17df16027cc552b5b249a2a5e6a1ea36ab37363a1ac29b69ab36035"
+checksum = "1370cc4a8eee751c4d2a729566d83d1568212320a20581c7c72c2d76ab80ed37"
+dependencies = [
+ "axum",
+ "paste",
+ "tower-layer",
+ "tower-service",
+ "utoipa",
+]
+
+[[package]]
+name = "utoipa-gen"
+version = "5.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5629efe65599d0ccd5d493688cbf6e03aa7c1da07fe59ff97cf5977ed0637f66"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5153,9 +5167,9 @@ dependencies = [
 
 [[package]]
 name = "utoipa-scalar"
-version = "0.2.0-alpha.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c851bc855ea797c92d61de0cd4d36195c01657bc92e42a02fd1373897d6bfe7"
+checksum = "c1291aa7a2223c2f8399d1c6627ca0ba57ca0d7ecac762a2094a9dfd6376445a"
 dependencies = [
  "axum",
  "serde",

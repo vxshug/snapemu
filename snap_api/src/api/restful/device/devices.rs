@@ -1,41 +1,43 @@
-use axum::{routing::get, Router};
+use crate::api::{SnJson, SnPath};
 use axum::extract::State;
-use axum::routing::delete;
+use common_define::product::DeviceType;
+use common_define::Id;
 use sea_orm::TransactionTrait;
 use tracing::instrument;
-use common_define::Id;
-use common_define::product::DeviceType;
-use crate::api::{SnJson, SnPath};
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
-use crate::service::device::device::{DeviceResp, DeviceInfo, DeviceSource, DeviceCreate, DeviceModify, MQTTDeviceInfo, DeviceWithAuth};
+use crate::service::device::device::{
+    DeviceCreate, DeviceInfo, DeviceModify, DeviceResp, DeviceSource, DeviceWithAuth,
+    MQTTDeviceInfo,
+};
 
-use crate::error::{ApiError, ApiResponseResult};
-use crate::{AppString, get_current_user, tt, AppState, GLOBAL_PRODUCT_NAME};
 use crate::cache::DeviceCache;
-use crate::service::device::DeviceService;
+use crate::error::{ApiError, ApiResponseResult};
 use crate::service::device::group::{DeviceGroupResp, DeviceGroupService};
+use crate::service::device::DeviceService;
 use crate::service::lorawan::{LoRaGateService, LoRaNodeService};
 use crate::service::mqtt::MQTTService;
 use crate::service::snap::SnapDeviceService;
+use crate::{get_current_user, tt, AppState, AppString, GLOBAL_PRODUCT_NAME};
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new().route("/", get(get_all_device).post(post_device))
-        .route("/:id", delete(delete_device).get(get_device).put(put_device))
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(get_all_device, post_device))
+        .routes(routes!(get_device, put_device, delete_device))
 }
-
 
 /// Get all devices
 ///
 #[utoipa::path(
-    get,
-    path = "/device",
+    method(get),
+    path = "",
     responses(
-            (status = 200, description = "List matching todos by query", body = [Todo])
-    )
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
 )]
-async fn get_all_device(
-    State(state): State<AppState>,
-) -> ApiResponseResult<DeviceGroupResp> {
+async fn get_all_device(State(state): State<AppState>) -> ApiResponseResult<DeviceGroupResp> {
     let user = get_current_user();
     let redis = &mut state.redis.get().await?;
     let mut all = DeviceGroupService::select_default_group(&user, redis, &state).await?;
@@ -46,13 +48,24 @@ async fn get_all_device(
     Ok(all.into())
 }
 
+/// Get one device
+///
+#[utoipa::path(
+    method(get),
+    path = "/{id}",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
 async fn get_device(
     State(state): State<AppState>,
     SnPath(id): SnPath<Id>,
 ) -> ApiResponseResult<DeviceResp> {
     let user = get_current_user();
     let conn = &state.db;
-    let DeviceWithAuth { auth, device } = DeviceService::query_one_with_auth(user.id, id, conn).await?;
+    let DeviceWithAuth { auth, device } =
+        DeviceService::query_one_with_auth(user.id, id, conn).await?;
     let info = match device.device_type {
         DeviceType::MQTT => {
             let s = MQTTService::get(id, conn).await?;
@@ -73,15 +86,18 @@ async fn get_device(
     };
 
     let group = DeviceGroupService::query_by_device(device.id, &user, conn).await?;
-    let group = group.into_iter().map(|item| DeviceGroupResp {
-        id: item.id.into(),
-        name: item.name.into(),
-        ..Default::default()
-    }).collect();
+    let group = group
+        .into_iter()
+        .map(|item| DeviceGroupResp {
+            id: item.id.into(),
+            name: item.name.into(),
+            ..Default::default()
+        })
+        .collect();
     let product = GLOBAL_PRODUCT_NAME.get_by_id(device.product_id);
     let (product_id, product_url) = match product {
         Some(p) => (Some(p.id), Some(p.image)),
-        None => (None, None)
+        None => (None, None),
     };
     let resp = DeviceResp {
         id: device.id.into(),
@@ -99,7 +115,8 @@ async fn get_device(
             modify: auth.modify,
             delete: auth.delete,
             share: auth.share,
-        }.into(),
+        }
+        .into(),
         device_type: device.device_type.into(),
         product_type: None,
         create_time: device.create_time.into(),
@@ -113,6 +130,16 @@ async fn get_device(
     Ok(resp.into())
 }
 
+/// Create a new device
+///
+#[utoipa::path(
+    method(post),
+    path = "",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
 #[instrument(skip(state))]
 async fn post_device(
     State(state): State<AppState>,
@@ -120,40 +147,66 @@ async fn post_device(
 ) -> ApiResponseResult<AppString> {
     let user = get_current_user();
     if req.eui.is_none() {
-        return Err(ApiError::User(tt!("messages.device.common.eui_missing")))
+        return Err(ApiError::User(tt!("messages.device.common.eui_missing")));
     }
-    
+
     let redis = state.redis.clone();
-    
-    state.db.transaction::<_, _, ApiError>(|ctx| {
-        Box::pin(async move {
-            let mut redis = redis.get().await?;
-            DeviceService::new_device(&user, req, &mut redis, ctx).await?;
-            DeviceCache::delete_by_user_id(user.id, &mut redis).await?;
-            Ok(())
+
+    state
+        .db
+        .transaction::<_, _, ApiError>(|ctx| {
+            Box::pin(async move {
+                let mut redis = redis.get().await?;
+                DeviceService::new_device(&user, req, &mut redis, ctx).await?;
+                DeviceCache::delete_by_user_id(user.id, &mut redis).await?;
+                Ok(())
+            })
         })
-    }).await?;
-    
+        .await?;
+
     Ok(tt!("messages.device.create_success").into())
 }
 
+/// Deleting a device
+///
+#[utoipa::path(
+    method(delete),
+    path = "/{id}",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
 async fn delete_device(
     State(state): State<AppState>,
     SnPath(id): SnPath<Id>,
 ) -> ApiResponseResult<AppString> {
     let redis = state.redis.clone();
-    state.db.transaction::<_, _, ApiError>(|ctx| {
-        Box::pin(async move {
-            let user = get_current_user();
-            let mut redis = redis.get().await?;
-            DeviceService::delete(id, &user, &mut redis, ctx).await?;
-            DeviceCache::delete_by_user_id(user.id, &mut redis).await?;
-            Ok(())
+    state
+        .db
+        .transaction::<_, _, ApiError>(|ctx| {
+            Box::pin(async move {
+                let user = get_current_user();
+                let mut redis = redis.get().await?;
+                DeviceService::delete(id, &user, &mut redis, ctx).await?;
+                DeviceCache::delete_by_user_id(user.id, &mut redis).await?;
+                Ok(())
+            })
         })
-    }).await?;
+        .await?;
     Ok(tt!("messages.device.delete_success").into())
 }
 
+/// Modify device information
+///
+#[utoipa::path(
+    method(put),
+    path = "/{id}",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
 async fn put_device(
     State(state): State<AppState>,
     SnPath(id): SnPath<Id>,
@@ -162,14 +215,18 @@ async fn put_device(
     let user = get_current_user();
     let device_with_auth = DeviceService::query_one_with_auth(user.id, id, &state.db).await?;
     let redis = state.redis.clone();
-    state.db.transaction::<_, _, ApiError>(|ctx| {
-        Box::pin(async move {
-            let mut redis = redis.get().await?;
-            DeviceService::update_info(device_with_auth, req, &mut redis, ctx).await?;
-            DeviceCache::delete_by_user_id(user.id, &mut redis).await?;
-            Ok(())
+    state
+        .db
+        .transaction::<_, _, ApiError>(|ctx| {
+            Box::pin(async move {
+                let mut redis = redis.get().await?;
+                DeviceService::update_info(device_with_auth, req, &mut redis, ctx).await?;
+                DeviceCache::delete_by_user_id(user.id, &mut redis).await?;
+                Ok(())
+            })
         })
-    }).await?;
+        .await?;
 
     Ok(String::new().into())
 }
+

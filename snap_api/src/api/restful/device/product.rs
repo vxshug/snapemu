@@ -1,6 +1,8 @@
 use axum::extract::State;
 use axum::Router;
 use axum::routing::get;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use common_define::Id;
 use common_define::time::Timestamp;
 use crate::{get_current_user, AppState, GLOBAL_PRODUCT_NAME};
@@ -8,10 +10,10 @@ use crate::api::SnPath;
 use crate::error::ApiResponseResult;
 use crate::service::device::DeviceService;
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
-        .route("/", get(get_all_product))
-        .route("/:id", get(get_product))
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(get_all_product))
+        .routes(routes!(get_product))
 }
 
 
@@ -25,6 +27,15 @@ struct ProductInfo {
     pub create_time: Timestamp,
 }
 
+/// Get all product information
+#[utoipa::path(
+    method(get),
+    path = "",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
 async fn get_all_product() -> ApiResponseResult<Vec<ProductInfo>> {
     let products: Vec<_> = GLOBAL_PRODUCT_NAME.get_all_product()
         .into_iter().map(|it| ProductInfo { id: it.id, sku: it.sku, name: it.name, description: it.description, image: it.image, create_time: it.create_time })
@@ -33,6 +44,15 @@ async fn get_all_product() -> ApiResponseResult<Vec<ProductInfo>> {
     Ok(products.into())
 }
 
+/// Get product information
+#[utoipa::path(
+    method(get),
+    path = "/{id}",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
 async fn get_product(
     State(state): State<AppState>,
     SnPath(id): SnPath<Id>,

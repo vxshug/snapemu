@@ -1,6 +1,8 @@
 use axum::extract::State;
 use axum::Router;
 use axum::routing::post;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 use crate::api::SnJson;
 use crate::{AppString, tt, AppState};
 use crate::error::{ApiError, ApiResponseResult};
@@ -10,13 +12,24 @@ use crate::utils::Checker;
 
 
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
-        .route("/request", post(request_delete))
-        .route("/", post(delete_user))
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(request_delete))
+        .routes(routes!(delete_user))
 }
 
 
+/// Request to delete a user
+///
+#[utoipa::path(
+    method(post),
+    path = "/request",
+    request_body = UserReset,
+    responses(
+        (status = 0, description = "Success", body = str)
+    ),
+    tag = crate::USER_TAG
+)]
 pub(crate) async fn request_delete(
     lang: UserLang,
     State(state): State<AppState>,
@@ -35,6 +48,17 @@ pub(crate) async fn request_delete(
     Ok(s.into())
 }
 
+/// Verify and delete user
+///
+#[utoipa::path(
+    method(post),
+    path = "",
+    request_body = UserDelete,
+    responses(
+        (status = 0, description = "Success", body = str)
+    ),
+    tag = crate::USER_TAG
+)]
 pub(crate) async fn delete_user(
     lang: UserLang,
     State(state): State<AppState>,
