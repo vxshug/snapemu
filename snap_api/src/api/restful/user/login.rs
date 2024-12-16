@@ -7,7 +7,19 @@ use crate::AppState;
 use crate::man::{UserManager};
 
 
-
+/// User login
+#[utoipa::path(
+    method(post),
+    path = "/login",
+    security(
+        (),
+    ),
+    request_body = LoginUser,
+    responses(
+        (status = OK, description = "Success", body = Token)
+    ),
+    tag = crate::USER_TAG
+)]
 pub(crate) async fn user_login(
     State(state): State<AppState>,
     lang: UserLang,
@@ -20,6 +32,7 @@ pub(crate) async fn user_login(
     ).await?;
     Ok(token.into())
 }
+
 
 pub(crate) async fn verify_email(
     lang: UserLang,

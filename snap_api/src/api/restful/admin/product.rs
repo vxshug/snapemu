@@ -17,14 +17,14 @@ pub(crate) fn router() -> Router<AppState> {
         .route("/", get(get_all_product).post(post_product))
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct ProductInfo {
     page: u64,
     count: u64,
     product: Vec<ProductInfoItem>,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct ProductInfoItem {
     id: Id,
     sku: String,
@@ -38,9 +38,7 @@ struct ProductInfoItem {
 #[openapi(
     paths(get_all_product,post_product),
     tags((name = "product", description = "Device Product Info control api")),
-    components(schemas(
-        ProductInfo,UpProduct
-    ))
+
 )]
 pub struct ProductApi;
 
@@ -50,7 +48,7 @@ pub struct ProductApi;
     get,
     path = "/product",
     responses(
-            (status = 0, description = "group page", body = ProductInfo),
+            (status = 0, description = "group page"),
     )
 )]
 async fn get_all_product(
@@ -91,7 +89,7 @@ struct UpProduct {
     path = "/product",
     request_body(content = inline(UpProduct), content_type = "multipart/form-data"),
     responses(
-            (status = 0, description = "group page", body = ProductInfo),
+            (status = 0, description = "group page"),
     )
 )]
 async fn post_product(

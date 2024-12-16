@@ -24,6 +24,7 @@ serde = { workspace = true, features = ["derive"] }
 async-graphql = { workspace = true, features = ["tokio", "uuid", "chrono"] }
 axum = { workspace = true, features = ["multipart"] }
 axum-extra= { workspace = true, features = ["typed-header"] }
+utoipa-axum = { workspace = true }
 tower-http = { workspace = true, features = ["cors", "fs", "limit", "trace"] }
 accept-language.workspace = true
 openssl = { workspace = true, features = ["vendored"] }

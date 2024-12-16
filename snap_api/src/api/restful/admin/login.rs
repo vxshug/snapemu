@@ -40,7 +40,6 @@ use crate::utils::PasswordHash;
 #[derive(OpenApi)]
 #[openapi(
     paths(login,),
-    tags((name = "login")),
     components(schemas(
         AdminLoginBody,
         JwtBody
@@ -57,10 +56,6 @@ pub struct UserApi;
     security(
     ()
     ),
-    responses(
-            (status = 0, description = "login successfully", body = JwtBody),
-            (status = 1, description = "The user name or password is incorrect", body = ApiResponseEmpty, example = json!(ApiResponse::auth("The user name or password is incorrect"))),
-    )
 )]
 async fn login(
     State(state): State<AppState>,

@@ -193,10 +193,7 @@ use service::user::Token;
 
 /// restful API Response
 #[derive(Serialize, Deserialize, utoipa::ToSchema)]
-#[aliases(
-    ApiResponseEmpty = ApiResponse<()>,
-    ApiResponseToken = ApiResponse<Token>,
-)]
+
 pub struct ApiResponse<T = ()> {
     /// code is the returned state
     #[schema(value_type = i32, example = 0)]

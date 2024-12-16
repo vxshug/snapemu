@@ -8,7 +8,7 @@ use crate::error::{ApiError, ApiResponse, ApiResponseResult, ApiStatus};
 use crate::service::user::{Picture, UserService};
 use crate::{AppString, get_current_user, tt, AppState};
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, utoipa::ToSchema)]
 pub struct PictureUrl {
     url: String
 }
@@ -45,6 +45,25 @@ impl<S> FromRequest<S> for PictureFile
     }
 }
 
+#[derive(utoipa::ToSchema)]
+struct PictureForm {
+    #[schema(content_media_type = "image/png")]
+    img: Vec<u8>,
+}
+
+/// Modify user profile picture
+#[utoipa::path(
+    method(post),
+    path = "/picture",
+    security(
+        (),
+    ),
+    request_body(content = inline(PictureForm), content_type = "multipart/form-data"),
+    responses(
+        (status = OK, description = "Success", body = PictureUrl)
+    ),
+    tag = crate::USER_TAG
+)]
 pub(crate) async fn picture(
     State(state): State<AppState>,
     PictureFile(mut multipart): PictureFile

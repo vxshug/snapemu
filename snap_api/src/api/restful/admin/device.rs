@@ -32,14 +32,14 @@ struct DeviceQuery {
     page: Option<u64>,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct DevicePages {
     page: u64,
     count: u64,
     devices: Vec<DevicePageItem>,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct DevicePageItem {
     pub id: Id,
     pub eui: Eui,
@@ -54,12 +54,12 @@ struct DevicePageItem {
     pub create_time: Timestamp,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct DeviceCountBody {
     count: u64,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct DeviceScriptBody {
     pub id: Id,
     pub script: String,
@@ -71,25 +71,13 @@ struct DeviceScriptBody {
     pub modify_time: Timestamp,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct DeviceCreatorBody {
     username: String,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
-#[schema(example = json!({
-    "id": 1, 
-    "eui": "2023121214179151", 
-    "name": "test",
-    "description": "test",
-    "creator": {
-        "username": "test"
-    },
-    "creator_id": 1,
-    "enable": true,
-    "online": true,
-    "script": null
-}))]
+#[derive(Serialize)]
+
 struct DeviceInfoBody {
     pub id: Id,
     pub eui: Eui,
@@ -116,7 +104,7 @@ enum DeviceTypeInfoBody {
 }
 
 /// Device information that can be modified
-#[derive(Deserialize, Serialize, utoipa::ToSchema, Default)]
+#[derive(Deserialize, Serialize,  Default)]
 struct DeviceChangeBody {
     /// device name.
     pub name: Option<String>,
@@ -127,22 +115,22 @@ struct DeviceChangeBody {
     /// LoRaNode. id of the decoding script. If null is set, the decoding script is not used
     pub script_id: Option<u64>,
     /// LoRaNode. Regional parameter, Enumerated value: EU868, US915, CN779, EU433, AU915, CN470, AS923_1, AS923_2, AS923_3, KR920, IN865, RU864
-    #[schema(pattern="^EU868|US915|CN779|EU433|AU915|CN470|AS923_1|AS923_2|AS923_3|KR920|IN865|RU864$")]
+    // #[schema(pattern="^EU868|US915|CN779|EU433|AU915|CN470|AS923_1|AS923_2|AS923_3|KR920|IN865|RU864$")]
     pub region: Option<String>,
     /// LoRaNode. Enumerated value: OTAA, ABP
-    #[schema(pattern="^OTAA|ABP$")]
+    // #[schema(pattern="^OTAA|ABP$")]
     pub join_type: Option<String>,
     /// LoRaNode. app_eui
-    #[schema(max_length = 16, min_length=16, pattern="^[0-9A-F]{16}$")]
+    // #[schema(max_length = 16, min_length=16, pattern="^[0-9A-F]{16}$")]
     pub app_eui: Option<String>,
     /// LoRaNode. otaa access key
-    #[schema(max_length = 32, min_length=32, pattern="^[0-9A-F]{32}$")]
+    // #[schema(max_length = 32, min_length=32, pattern="^[0-9A-F]{32}$")]
     pub app_key: Option<String>,
     /// LoRaNode. nwk_skey
-    #[schema(max_length = 32, min_length=32, pattern="^[0-9A-F]{32}$")]
+    // #[schema(max_length = 32, min_length=32, pattern="^[0-9A-F]{32}$")]
     pub nwk_skey: Option<String>,
     /// LoRaNode. app_skey
-    #[schema(max_length = 32, min_length=32, pattern="^[0-9A-F]{32}$")]
+    // #[schema(max_length = 32, min_length=32, pattern="^[0-9A-F]{32}$")]
     pub app_skey: Option<String>,
     /// LoRaNode. 
     pub class_b: Option<bool>,
@@ -171,7 +159,7 @@ struct DeviceChangeBody {
     /// LoRaNode. 
     pub c_retry: Option<i16>,
     /// LoRaNode. Custom, Monitor, Controller, Gate
-    #[schema(pattern="^Custom|Monitor|Controller|Gate$")]
+    // #[schema(pattern="^Custom|Monitor|Controller|Gate$")]
     pub product_type: Option<ProductType>,
     /// LoRaNode.
     pub dutycyle: Option<i32>,
@@ -182,7 +170,7 @@ struct DeviceChangeBody {
     /// LoRaNode.
     pub time_zone: Option<i32>,
     /// Snap. 
-    #[schema(max_length = 32, min_length=32, pattern="^[0-9A-F]{32}$")]
+    // #[schema(max_length = 32, min_length=32, pattern="^[0-9A-F]{32}$")]
     pub key: Option<String>
 }
 
@@ -190,13 +178,6 @@ struct DeviceChangeBody {
 #[derive(OpenApi)]
 #[openapi(
     paths(get_all_devices, get_devices_count, get_device_info,put_device_info),
-    tags((name = "device", description = "Device control api")),
-    components(schemas(
-        DevicePages,
-        DeviceCountBody,
-        DeviceInfoBody,
-        DeviceChangeBody
-    ))
 )]
 pub struct DeviceApi;
 
@@ -209,7 +190,7 @@ pub struct DeviceApi;
         DeviceQuery,
     ),
     responses(
-            (status = 0, description = "device count", body = DeviceCountBody),
+            (status = 0, description = "device count"),
     )
 )]
 async fn get_devices_count(
@@ -230,7 +211,7 @@ async fn get_devices_count(
         DeviceQuery,
     ),
     responses(
-            (status = 0, description = "device page", body = DevicePages),
+            (status = 0, description = "device page"),
     )
 )]
 async fn get_all_devices(
@@ -278,7 +259,7 @@ async fn get_all_devices(
         ("id", description = "Device id"),
     ),
     responses(
-            (status = 0, description = "information", body = DeviceInfoBody),
+            (status = 0, description = "information"),
     )
 )]
 async fn get_device_info(
@@ -389,9 +370,8 @@ async fn get_device_info(
     params(
         ("id", Path, description = "Device id"),
     ),
-    request_body = DeviceChangeBody,
     responses(
-            (status = 0, description = "information", body = DeviceInfoBody),
+            (status = 0, description = "information"),
     )
 )]
 async fn put_device_info(

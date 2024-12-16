@@ -22,14 +22,14 @@ struct GroupQuery {
     page: Option<u64>,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct GroupPages {
     page: u64,
     count: u64,
     users: Vec<GroupPageItem>,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct GroupPageItem {
     pub id: Id,
     pub name: String,
@@ -44,9 +44,6 @@ struct GroupPageItem {
 #[openapi(
     paths(get_all_group),
     tags((name = "group", description = "Device Group control api")),
-    components(schemas(
-        GroupPages,
-    ))
 )]
 pub struct GroupApi;
 
@@ -59,7 +56,7 @@ pub struct GroupApi;
         GroupQuery,
     ),
     responses(
-            (status = 0, description = "group page", body = UserPages),
+            (status = 0, description = "group page"),
     )
 )]
 async fn get_all_group(

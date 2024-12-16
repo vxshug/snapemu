@@ -10,13 +10,13 @@ use crate::man::UserManager;
 use crate::service::user::{UserService};
 use crate::utils::{Base64, PasswordHash, Rand};
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, utoipa::ToSchema)]
 pub(crate) struct UserPutInfo {
     pub(crate) password: Option<String>,
     pub(crate) old_password: Option<String>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug,  utoipa::ToSchema)]
 pub(crate) struct UserRespInfo {
     pub(crate) username: String,
     pub(crate) picture: String,

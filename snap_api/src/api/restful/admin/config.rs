@@ -22,12 +22,12 @@ pub(crate) fn router() -> Router<AppState> {
     Router::new().route("/", get(get_all_config).put(put_config_info))
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct Config {
     pub config: Vec<ConfigItem>,
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
+#[derive(Serialize)]
 struct ConfigItem {
     pub id: Id,
     pub name: String,
@@ -40,7 +40,6 @@ struct ConfigItem {
     paths(get_all_config,put_config_info),
     tags((name = "config", description = "web control api")),
     components(schemas(
-        Config,
     ))
 )]
 pub struct ConfigApi;
@@ -51,7 +50,7 @@ pub struct ConfigApi;
     get,
     path = "/config",
     responses(
-            (status = 0, description = "user page", body = UserPages),
+            (status = 0, description = "user page"),
     )
 )]
 async fn get_all_config(State(state): State<AppState>) -> ApiResponseResult<Config> {
@@ -80,7 +79,7 @@ async fn get_all_config(State(state): State<AppState>) -> ApiResponseResult<Conf
         "app_version": "1.0.0"
     })),
     responses(
-            (status = 0, description = "Modify configuration", body = Config),
+            (status = 0, description = "Modify configuration"),
     )
 )]
 async fn put_config_info(

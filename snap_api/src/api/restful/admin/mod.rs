@@ -17,7 +17,6 @@ use uuid::Uuid;
 use common_define::Id;
 use common_define::time::Timestamp;
 use crate::{AppState};
-use crate::api::restful::ApiDoc;
 use crate::error::ApiResponse;
 use crate::load::load_config;
 
@@ -32,16 +31,17 @@ mod product;
 #[derive(OpenApi)]
 #[openapi(
     tags(
+            (name = "admin"),
             (name = "Snapemu Admin", description = "Snapemu Admin API")
     ),
     nest(
-        (path = "/api/v1/admin", api = login::UserApi),
-        (path = "/api/v1/admin", api = device::DeviceApi),
-        (path = "/api/v1/admin", api = user::UserApi),
-        (path = "/api/v1/admin", api = group::GroupApi),
-        (path = "/api/v1/admin", api = config::ConfigApi),
-        (path = "/api/v1/admin", api = log::LogApi),
-        (path = "/api/v1/admin", api = product::ProductApi),
+        (path = "/admin", api = login::UserApi),
+        (path = "/admin", api = device::DeviceApi),
+        (path = "/admin", api = user::UserApi),
+        (path = "/admin", api = group::GroupApi),
+        (path = "/admin", api = config::ConfigApi),
+        (path = "/admin", api = log::LogApi),
+        (path = "/admin", api = product::ProductApi),
     ),
     security(
         ("Authorization" = []),

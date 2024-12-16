@@ -1,25 +1,36 @@
+use crate::api::{SnJson, SnPath};
 use crate::error::{ApiError, ApiResponseResult};
 use crate::service::device::group::{
-    DeviceGroupService, DeviceGroupResp, ReqDeviceGroup, ReqPutDeviceGroup
+    DeviceGroupResp, DeviceGroupService, ReqDeviceGroup, ReqPutDeviceGroup,
 };
+use crate::{get_current_user, tt, AppState, AppString};
+use axum::extract::State;
 use axum::routing::{delete, post};
 use axum::{Json, Router};
-use axum::extract::State;
-use sea_orm::TransactionTrait;
 use common_define::Id;
-use crate::api::{SnJson, SnPath};
-use crate::{AppString, get_current_user, tt, AppState};
+use sea_orm::TransactionTrait;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
-        .route("/", post(create).get(all_group))
-        .route("/:id", delete(delete_group).put(put_group).get(get_group))
-        .route("/:id/:device", delete(delete_group_device))
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(post_group, all_group))
+        .routes(routes!(get_group, put_group, delete_group))
+        .routes(routes!(delete_group_device))
 }
 
-async fn create(
+/// Create a device group
+#[utoipa::path(
+    method(post),
+    path = "",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
+async fn post_group(
     State(app_state): State<AppState>,
-    group: Json<ReqDeviceGroup>,
+    group: SnJson<ReqDeviceGroup>,
 ) -> ApiResponseResult<AppString> {
     let user = get_current_user();
     let redis = &mut app_state.redis.get().await?;
@@ -27,6 +38,15 @@ async fn create(
     Ok(tt!("messages.device.group.create_success").into())
 }
 
+/// Get a device group
+#[utoipa::path(
+    method(get),
+    path = "/{group}",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
 async fn get_group(
     State(state): State<AppState>,
     SnPath(id): SnPath<Id>,
@@ -38,30 +58,60 @@ async fn get_group(
     Ok(groups.into())
 }
 
-async fn all_group(
-    State(state): State<AppState>,
-) -> ApiResponseResult<Vec<DeviceGroupResp>> {
+/// Get all device groups
+#[utoipa::path(
+    method(get),
+    path = "",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
+async fn all_group(State(state): State<AppState>) -> ApiResponseResult<Vec<DeviceGroupResp>> {
     let user = get_current_user();
-    
+
     let groups = DeviceGroupService::select_all(&user, &state.db).await?;
     Ok(groups.into())
 }
 
+
+/// Deleting a device group
+#[utoipa::path(
+    method(delete),
+    path = "/{group}",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
 async fn delete_group(
     State(state): State<AppState>,
     SnPath(id): SnPath<Id>,
 ) -> ApiResponseResult<AppString> {
     let mut redis = state.redis.get().await?;
-    state.db.transaction::<_,_, ApiError>(|ctx| {
-        Box::pin(async move {
-            let user = get_current_user();
-            DeviceGroupService::delete_one(&user, id, &mut redis, ctx).await?;
-            Ok(())
+    state
+        .db
+        .transaction::<_, _, ApiError>(|ctx| {
+            Box::pin(async move {
+                let user = get_current_user();
+                DeviceGroupService::delete_one(&user, id, &mut redis, ctx).await?;
+                Ok(())
+            })
         })
-    }).await?;
+        .await?;
     Ok(tt!("messages.device.group.delete_success").into())
 }
 
+
+/// Device removal group
+#[utoipa::path(
+    method(delete),
+    path = "/{group}/{id}",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
 async fn delete_group_device(
     State(state): State<AppState>,
     SnPath((group, device)): SnPath<(Id, Id)>,
@@ -72,19 +122,30 @@ async fn delete_group_device(
     Ok(tt!("messages.device.group.delete_device").into())
 }
 
-
+/// Modify a device group
+#[utoipa::path(
+    method(put),
+    path = "/{group}",
+    responses(
+        (status = OK, description = "Success", body = str)
+    ),
+    tag = crate::DEVICE_TAG
+)]
 async fn put_group(
     State(state): State<AppState>,
     SnPath(group): SnPath<Id>,
     SnJson(req): SnJson<ReqPutDeviceGroup>,
 ) -> ApiResponseResult<AppString> {
     let mut redis = state.redis.get().await?;
-    state.db.transaction::<_, _, ApiError>(|ctx| {
-        Box::pin(async move {
-            let user = get_current_user();
-            DeviceGroupService::update_group(group, &user, req, &mut redis, ctx).await?;
-            Ok(())
+    state
+        .db
+        .transaction::<_, _, ApiError>(|ctx| {
+            Box::pin(async move {
+                let user = get_current_user();
+                DeviceGroupService::update_group(group, &user, req, &mut redis, ctx).await?;
+                Ok(())
+            })
         })
-    }).await?;
+        .await?;
     Ok(tt!("messages.device.group.link_device").into())
 }
