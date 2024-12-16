@@ -14,8 +14,8 @@ use crate::AppState;
 use crate::error::{ApiError, ApiResponse, ApiResponseResult};
 use crate::man::UserManager;
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/", post(login))
 }
 
@@ -34,6 +34,7 @@ struct JwtBody {
 }
 
 use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 use crate::load::load_config;
 use crate::utils::PasswordHash;
 

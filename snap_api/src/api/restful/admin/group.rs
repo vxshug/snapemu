@@ -4,14 +4,15 @@ use axum::routing::get;
 use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder};
 use serde::{Deserialize, Serialize};
 use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 use common_define::db::{DeviceGroupColumn, DeviceGroupEntity, DevicesColumn, DevicesEntity, UsersColumn, UsersEntity};
 use common_define::Id;
 use common_define::time::Timestamp;
 use crate::AppState;
 use crate::error::{ApiError, ApiResponseResult};
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/", get(get_all_group))
 }
 

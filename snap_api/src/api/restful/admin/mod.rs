@@ -12,6 +12,7 @@ use sha2::Sha256;
 use tracing::Instrument;
 use utoipa::{Modify, OpenApi};
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, HttpAuthScheme, HttpBuilder, SecurityScheme};
+use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
 use uuid::Uuid;
 use common_define::Id;
@@ -71,9 +72,9 @@ impl Modify for AdminSecurityAddon {
     }
 }
 
-pub(crate) fn router() -> Router<AppState> {
+pub(crate) fn router() -> OpenApiRouter<AppState> {
     let config = load_config();
-    let auth = Router::new()
+    let auth = OpenApiRouter::new()
         .nest("/device", device::router())
         .nest("/user", user::router())
         .nest("/group", group::router())
@@ -83,12 +84,12 @@ pub(crate) fn router() -> Router<AppState> {
         .layer(middleware::from_fn(auth));
 
     if config.api.openapi {
-        Router::new()
+        OpenApiRouter::new()
             .nest("/login", login::router())
-            .merge( Scalar::with_url("/scalar", AdminApi::openapi()))
+            // .merge( Scalar::with_url("/scalar", AdminApi::openapi()))
             .merge(auth)
     } else {
-        Router::new()
+        OpenApiRouter::new()
             .nest("/login", login::router())
             .merge(auth)
     }

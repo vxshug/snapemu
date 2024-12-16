@@ -5,6 +5,7 @@ use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder}
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 use common_define::db::{DeviceGroupColumn, DeviceGroupEntity, DevicesColumn, DevicesEntity, Eui, UsersColumn, UsersEntity};
 use common_define::Id;
 use common_define::product::DeviceType;
@@ -13,8 +14,8 @@ use crate::api::SnPath;
 use crate::AppState;
 use crate::error::{ApiError, ApiResponseResult};
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/", get(get_all_users))
         .route("/info/:id", get(get_user_info))
 }
