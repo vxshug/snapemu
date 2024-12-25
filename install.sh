@@ -1,5 +1,11 @@
 #!/bin/bash
 
+api_image="heltec/snapemu-api:main"
+manager_image="heltec/snapemu-manager:main"
+web_image="heltec/snapemu-web:main"
+db_image="postgres:16.3-alpine3.20"
+redis_image="redis:7.2.4-alpine3.19"
+
 install_dir=$(pwd)/snapemu
 db_password=''
 web_domain=''
@@ -100,29 +106,19 @@ check_install_dir() {
 }
 
 generate_docker_compose() {
+    in_china="n"
+    read -p "In China? (y/N): " in_china
+    if [[ "in_china" == "y" || "$in_china" == "Y" || "$in_china" == "Yes" || "$in_china" == "y" ]]; then
+        api_image="registry.cn-hongkong.aliyuncs.com/snap_emu/api:main"
+        manager_image="registry.cn-hongkong.aliyuncs.com/snap_emu/manager:main"
+        web_image="registry.cn-hongkong.aliyuncs.com/snap_emu/web:main"
+        db_image="registry.cn-hongkong.aliyuncs.com/snap_emu/db:main"
+        redis_image="registry.cn-hongkong.aliyuncs.com/snap_emu/redis:main"
+    fi
   cat <<EOF > ${install_dir}/compose.yaml
 services:
-  traefik:
-    image: "traefik:v3.2"
-    restart: always
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.web.forwardedheaders.insecure"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.websecure.http3"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.myresolver.acme.email=example@example.com"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - "letsencrypt:/letsencrypt"
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
   db:
-    image: 'postgres:16.3-bookworm'
+    image: "${db_image}"
     restart: always
     environment:
       POSTGRES_PASSWORD: ${db_password}
@@ -130,27 +126,18 @@ services:
     volumes:
       - "db-data:/var/lib/postgresql/data"
   redis:
-    image: 'redis:7.2.4-bookworm'
+    image: "${redis_image}"
     restart: always
   api:
-    image: 'registry.cn-hongkong.aliyuncs.com/snap_emu/api:alpine-dev'
+    image: "${api_image}"
     pull_policy: always
     volumes:
       - ./config:/etc/snapemu:ro
       - "assets:/app/assets"
     restart: always
     command: ["./snap_api", "run"]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.snapemu.rule=Host(\`${web_domain}\`) && PathPrefix(\`/api\`)"
-      - "traefik.http.routers.snapemu.service=snapemu"
-      - "traefik.http.routers.snapemu.tls=true"
-      - "traefik.http.routers.snapemu.tls.certresolver=myresolver"
-      - "traefik.http.routers.snapemuhttp.rule=Host(\`${web_domain}\`) && PathPrefix(\`/api\`)"
-      - "traefik.http.routers.snapemuhttp.service=snapemu"
-      - "traefik.http.services.snapemu.loadbalancer.server.port=8000"
   manager:
-    image: 'registry.cn-hongkong.aliyuncs.com/snap_emu/manager:alpine-dev'
+    image: "${manager_image}"
     pull_policy: always
     ports:
       - 1700:1700/udp
@@ -159,19 +146,15 @@ services:
     restart: always
     command: ["./devices_manager", "run"]
   web:
-    image: 'registry.cn-hongkong.aliyuncs.com/snap_emu/web:alpine-dev'
+    image: "${web_image}"
     pull_policy: always
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.web.rule=Host(\`${web_domain}\`)"
-      - "traefik.http.routers.web.service=web"
-      - "traefik.http.routers.web.tls=true"
-      - "traefik.http.routers.web.tls.certresolver=myresolver"
-      - "traefik.http.routers.web.rule=Host(\`${web_domain}\`)"
-      - "traefik.http.routers.web.service=web"
-      - "traefik.http.services.web.loadbalancer.server.port=80"
+    restart: always
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "80:80"
+      - "443:443"
 volumes:
-  letsencrypt:
   db-data:
   assets:
 EOF
@@ -185,6 +168,7 @@ generate_config() {
     mkdir -p $config_dir
   fi
   local api_config=${install_dir}/config/config.yaml
+  local caddy_config=${install_dir}/Caddyfile
   read -p "Enter the website domain name: " web_domain
   read -p "Please enter the database password: " db_password
   cat <<EOF > ${api_config}
@@ -202,7 +186,7 @@ api:
     path: /etc/snapemu/model.yaml
   port: 8000
   host: "0.0.0.0"
-  web: "https://platform.snapemu.com"
+  web: "${web_domain}"
 redis:
   host: redis
   db: 0
@@ -212,6 +196,20 @@ db:
   username: postgres
   db: snapemu
 jwt_key: ${jwt_key}
+EOF
+
+  cat <<EOF > ${caddy_config}
+:80 {
+	route /api/* {
+          reverse_proxy http://api:8000
+        }
+	route {
+          root * /var/www/html
+          try_files {path} /index.html
+          file_server
+          encode    zstd   gzip
+        }
+}
 EOF
 }
 
