@@ -34,14 +34,8 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .route("/app/version", get(app::version))
         .route("/device/query/register", post(register_query))
         // .nest("/verify", verify::router())
-        // .nest("/admin", admin::router())
+        .nest("/admin", admin::router())
         .nest("/user", user::router()).merge(api);
-    // if config.api.openapi {
-    //     Router::new().nest("/v1", api)
-    //         .merge(Scalar::with_url("/scalar", ApiDoc::openapi()))
-    // } else {
-    //     Router::new().nest("/v1", api)
-    // }
     api
 }
 

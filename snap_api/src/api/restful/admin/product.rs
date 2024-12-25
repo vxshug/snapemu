@@ -5,6 +5,7 @@ use futures_util::FutureExt;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use serde::Serialize;
 use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 use common_define::db::{SnapProductInfoActiveModel, SnapProductInfoEntity};
 use common_define::Id;
 use common_define::time::Timestamp;
@@ -12,8 +13,8 @@ use crate::{tt, AppState};
 use crate::error::{ApiError, ApiResponseResult};
 use crate::service::user::{save_picture, Picture};
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/", get(get_all_product).post(post_product))
 }
 

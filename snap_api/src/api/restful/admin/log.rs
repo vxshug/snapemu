@@ -5,13 +5,14 @@ use axum::response::sse::{Event, KeepAlive};
 use axum::routing::get;
 use tokio_stream::StreamExt;
 use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 use common_define::event::PlatformLog;
 use crate::{get_current_user, tt, AppState};
 use crate::error::ApiError;
 use crate::man::{RedisClient, RedisRecv};
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/", get(log))
 }
 

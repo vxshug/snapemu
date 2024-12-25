@@ -17,9 +17,10 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new().route("/", get(get_all_config).put(put_config_info))
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().route("/", get(get_all_config).put(put_config_info))
 }
 
 #[derive(Serialize)]

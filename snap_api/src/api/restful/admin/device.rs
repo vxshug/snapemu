@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::warn;
 use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 use common_define::db::{DecodeMap, DecodeScriptEntity, DeviceLoraNodeEntity, DevicesColumn, DevicesEntity, Eui, Key, LoRaAddr, SnapDeviceEntity, UsersEntity};
 use common_define::Id;
 use common_define::lora::{LoRaJoinType, LoRaRegion};
@@ -18,8 +19,8 @@ use crate::api::{SnJson, SnPath};
 use crate::AppState;
 use crate::error::{ApiError, ApiResponseResult};
 
-pub(crate) fn router() -> Router<AppState> {
-    Router::new()
+pub(crate) fn router() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .route("/", get(get_all_devices))
         .route("/count", get(get_devices_count))
         .route("/info/:id", get(get_device_info).put(put_device_info))
