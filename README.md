@@ -1,6 +1,10 @@
 # Snapemu: Open-source IoT Platform Supporting LoRaWAN and MQTT
 
-Snapemu is an open-source IoT platform designed to simplify the integration and management of devices using **LoRaWAN** and **MQTT** protocols. Whether you're building a smart city, managing industrial IoT applications, or exploring hobby projects, Snapemu provides a flexible, reliable, and scalable solution.
+![](img/01.png)
+
+SnapEmu is an open-source IoT platform fully designed by [Heltec Automation](https://heltec.org/)<sup>®</sup>, to simplify the integration and management of devices using **LoRaWAN** and **MQTT** protocols. 
+
+Whether you're building a smart city, managing industrial IoT applications, or exploring hobby projects, SnapEmu provides a flexible, reliable, and scalable solution.
 
 ---
 
