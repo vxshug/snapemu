@@ -16,6 +16,7 @@ pub struct AppConfig {
     #[serde(default)]
     pub concat_email: Option<String>,
     pub api: ApiConfig,
+    pub device_data_timeout_day: Option<u32>
 }
 
 impl Default for AppConfig {
@@ -38,6 +39,7 @@ impl Default for AppConfig {
                 host: "0.0.0.0".to_string(),
                 port: 8080,
             },
+            device_data_timeout_day: None,
         }
     }
 }
