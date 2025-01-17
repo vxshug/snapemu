@@ -1,17 +1,23 @@
-# Snapemu: Open-source IoT Platform Supporting LoRaWAN and MQTT
+# SnapEmu: Open-source GUI IoT Platform Compatible with LoRaWAN/MQTT
 
 ![](img/01.png)
 
-SnapEmu is an open-source IoT platform fully designed by [Heltec Automation](https://heltec.org/)<sup>®</sup>, to simplify the integration and management of devices using **LoRaWAN** and **MQTT** protocols. 
+SnapEmu is an open-source GUI IoT platform fully R&D and mantanced by [Heltec Automation](https://heltec.org/)<sup>®</sup>, to simplify the integration and management of devices using **LoRaWAN** and **MQTT** protocols. It includes a [web platform](https://snapemu.com/) with a GUI interface, and its relevant [IOS](https://apps.apple.com/cn/app/snapemu/id6475621820) and [Android apps](https://play.google.com/store/apps/details?id=com.heltec.snapemu_app), which can analyze, store and display various data in real-time.
 
-Whether you're building a smart city, managing industrial IoT applications, or exploring hobby projects, SnapEmu provides a flexible, reliable, and scalable solution.
+You can use the existing [SnapEmu public platform](https://snapemu.com/) to quickly deploy IoT applications, or you can deploy it locally (Your cloud server, edge computing device, Raspberry Pi, etc.), **and the locally deployed SnapEmu can be used as the data source of the APP**.
+
+<img src="img/02.png" alt="WebDashboard" style="zoom:50%;" />![WebDetail](img/03.png)
+
+<img src="img/03.png" alt="WebDashboard" style="zoom:50%;" />
+
+<img src="img/04.png" alt="WebDashboard" style="zoom:50%;" />
 
 ---
 
 ## 🌟 Features
 
 - **LoRaWAN Integration**: Full support for LoRaWAN devices with easy configuration and deployment.
-- **MQTT Broker**: Seamless communication using the lightweight MQTT protocol.
+- **MQTT Broker** (use [EMQX](https://github.com/emqx/emqx)): Seamless communication using the lightweight MQTT protocol.
 - **Dashboard**: Real-time monitoring and data visualization for connected devices.
 - **Device Management**: Add, configure, and manage your devices effortlessly.
 - **Open-Source**: Free to use and extend with a developer-friendly architecture.
@@ -22,35 +28,21 @@ Whether you're building a smart city, managing industrial IoT applications, or e
 
 ## 🚀 Getting Started
 
-Follow these steps to set up Snapemu on your machine.
-
 ### Prerequisites
 
-- Docker (recommended for quick setup)
+- [Docker](https://www.docker.com/) (recommended for quick setup)
 
-### Installation
+By follow the document to getting start:
 
-   ```bash
-   bash <(curl -sSL https://raw.githubusercontent.com/HelTecAutomation/snapemu/main/install.sh)
-   ```
+- [Document](https://snapemudoc.readthedocs.io/en/latest/index.html)
+
 ---
 
 ## 🛠️ Development
 
-### Contributing
-Contributions are welcome! Please follow the guidelines in [CONTRIBUTING.md](CONTRIBUTING.md).
+- Source Code: https://github.com/HelTecAutomation/snapemu
 
-1. Fork the repository.
-2. Create a new branch for your feature:
-   ```bash
-   git checkout -b feature-name
-   ```
-3. Commit and push your changes:
-   ```bash
-   git commit -m "Add your feature description"
-   git push origin feature-name
-   ```
-4. Create a Pull Request.
+- API: https://platform.snapemu.com/api/scalar
 
 ---
 
