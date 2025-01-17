@@ -6,7 +6,7 @@ SnapEmu is an open-source GUI IoT platform fully R&D and mantanced by [Heltec Au
 
 You can use the existing [SnapEmu public platform](https://snapemu.com/) to quickly deploy IoT applications, or you can deploy it locally (Your cloud server, edge computing device, Raspberry Pi, etc.), **and the locally deployed SnapEmu can be used as the data source of the APP**.
 
-<img src="img/02.png" alt="WebDashboard" style="zoom:50%;" />![WebDetail](img/03.png)
+<img src="img/02.png" alt="WebDashboard" style="zoom:50%;" />
 
 <img src="img/03.png" alt="WebDashboard" style="zoom:50%;" />
 
