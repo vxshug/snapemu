@@ -11,7 +11,7 @@ use axum::{middleware, Extension, Router, http};
 use deadpool::managed::PoolConfig;
 use futures_util::StreamExt;
 use once_cell::sync::Lazy;
-use sea_orm::EntityTrait;
+use sea_orm::{DbErr, DeleteResult, EntityTrait, QueryFilter, ColumnTrait};
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
@@ -20,7 +20,7 @@ use utoipa::{Modify, OpenApi};
 use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
-use common_define::db::{SnapProductInfoEntity};
+use common_define::db::{DeviceDataActiveModel, DeviceDataColumn, DeviceDataEntity, DeviceDataModel, SnapProductInfoEntity};
 use common_define::event::DeviceEvent;
 use snap_config::SnapConfig;
 
@@ -139,12 +139,30 @@ fn load_redis(config: &SnapConfig) -> deadpool_redis::Pool  {
     cfg.create_pool(Some(deadpool_redis::Runtime::Tokio1)).unwrap()
 }
 
+async fn clean_timeout_device_data(db: sea_orm::DatabaseConnection) {
+    loop {
+        let timeout_day = load_config().device_data_timeout_day.unwrap_or(7);
+        let timeout = chrono::Utc::now() - chrono::Duration::days(timeout_day as i64);
+        match DeviceDataEntity::delete_many()
+            .filter(DeviceDataColumn::CreateTime.lt(timeout))
+            .exec(&db)
+            .await {
+            Ok(_) => {
+                info!("Cleaning timeout device data for {}", timeout);
+            }
+            Err(e) => {
+                warn!("Cleaning timeout device data for {} failed: {}", timeout, e);
+            }
+        }
+        tokio::time::sleep(chrono::Duration::days(timeout_day as i64).to_std().unwrap()).await;
+    }
+}
+
 pub async fn run(config_path: String, env_prefix: String) {
     let config = store_config(config_path, env_prefix);
     snap_config::init_logging(config.log);
     let redis_pool = RedisClient::get_client();
     let db = load_db().await;
-
     migration::Migrator::up(&db, None).await.unwrap();
     let redis: RedisClient = RedisClient::get_client();
     let mut consumer = RedisRecv::new(redis.get_pubsub().await.unwrap());
@@ -152,6 +170,10 @@ pub async fn run(config_path: String, env_prefix: String) {
     let event = NodeEventManager::new();
     let event1 = event.clone();
 
+    let timeout_db = db.clone();
+    tokio::spawn(async move {
+        clean_timeout_device_data(timeout_db).await;
+    });
     tokio::spawn(async move {
         loop {
             let mut message = consumer.message();
@@ -208,6 +230,7 @@ pub async fn run(config_path: String, env_prefix: String) {
         let api_post = config.api.port;
         format!("{}:{}", api_host, api_post)
     };
+
     info!("listen: {}", url);
     info!("web url: {}", config.api.web_url);
     let listener = tokio::net::TcpListener::bind(url).await.unwrap();
