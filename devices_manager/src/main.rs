@@ -16,7 +16,7 @@ enum Subcommands {
 
 fn cmd() -> Command {
     let cli = Command::new("snapemu-manager")
-        .version(env!("SNAPEMU_DEVICE_VERSION"));
+        .version(option_env!("SNAPEMU_DEVICE_VERSION").unwrap_or("dev"));
     Subcommands::augment_subcommands(cli)
 
 }
