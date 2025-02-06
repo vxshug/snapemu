@@ -3,8 +3,6 @@ use crate::error::ApiResponseResult;
 use crate::service::device::DeviceService;
 use crate::{get_current_user, AppState, GLOBAL_PRODUCT_NAME};
 use axum::extract::State;
-use axum::routing::get;
-use axum::Router;
 use common_define::time::Timestamp;
 use common_define::Id;
 use utoipa_axum::router::OpenApiRouter;

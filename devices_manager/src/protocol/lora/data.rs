@@ -51,7 +51,7 @@ impl<'a> RespDataBuilder<'a> {
         }
         let r = phy
             .build(data, mac, &self.node.nwk_skey, &self.node.app_skey)
-            .map_err(|e| DataError::from(e))?;
+            .map_err(DataError::from)?;
         let len = r.len();
         let data = base64::engine::general_purpose::STANDARD.encode(r);
         let txpk = self.calc_args(data, Some(len as u32))?;
@@ -61,7 +61,7 @@ impl<'a> RespDataBuilder<'a> {
     pub fn calc_args(&self, data: String, size: Option<u32>) -> DeviceResult<TXPK> {
         let imme = false;
         let tmst = self.calc_tmst().into();
-        let freq = self.calc_freq()?.into();
+        let freq = self.calc_freq()?;
         let _time = String::new();
         let rfch = 0;
         let powe = self.calc_powe().into();
@@ -252,7 +252,7 @@ impl<'a> JoinRespDataBuilder<'a> {
     pub fn calc_args(&self, data: String, size: Option<u32>) -> DeviceResult<TXPK> {
         let imme = false;
         let tmst = self.calc_tmst().into();
-        let freq = self.calc_freq()?.into();
+        let freq = self.calc_freq()?;
         let rfch = 0;
         let powe = self.calc_powe().into();
         let modu = UpMode::LORA;

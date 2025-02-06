@@ -1,11 +1,10 @@
 use crate::api::restful::admin::JwtClaims;
 use crate::api::SnJson;
-use crate::error::{ApiError, ApiResponse, ApiResponseResult};
+use crate::error::{ApiError, ApiResponseResult};
 use crate::man::UserManager;
 use crate::AppState;
 use axum::extract::State;
 use axum::routing::post;
-use axum::{Extension, Router};
 use common_define::db::{SnapAdminColumn, SnapAdminEntity, UsersColumn, UsersEntity};
 use common_define::time::Timestamp;
 use hmac::{Hmac, Mac};

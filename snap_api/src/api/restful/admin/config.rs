@@ -1,20 +1,15 @@
-use crate::api::{SnJson, SnPath};
-use crate::error::{ApiError, ApiResponseResult};
+use crate::api::SnJson;
+use crate::error::ApiResponseResult;
 use crate::AppState;
-use axum::extract::{Query, State};
+use axum::extract::State;
 use axum::routing::get;
-use axum::Router;
-use common_define::db::{
-    DeviceGroupColumn, DeviceGroupEntity, DevicesColumn, DevicesEntity, Eui, SnapConfigActiveModel,
-    SnapConfigColumn, SnapConfigEntity, UsersColumn, UsersEntity,
-};
+use common_define::db::{SnapConfigActiveModel, SnapConfigColumn, SnapConfigEntity};
 use common_define::time::Timestamp;
 use common_define::Id;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;

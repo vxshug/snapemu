@@ -5,8 +5,6 @@ use crate::service::user::{UserDelete, UserLang, UserReset, UserService};
 use crate::utils::Checker;
 use crate::{tt, AppState, AppString};
 use axum::extract::State;
-use axum::routing::post;
-use axum::Router;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 

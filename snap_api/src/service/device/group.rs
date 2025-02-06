@@ -539,7 +539,7 @@ impl DeviceGroupService {
                         device_type: device.device_type.into(),
                         product_type: None,
                         create_time: None,
-                        active_time: device.active_time.into(),
+                        active_time: device.active_time,
                         data: None,
                         script: None,
                         product_id,

@@ -1,12 +1,11 @@
 use crate::api::{SnJson, SnPath};
 use crate::error::{ApiError, ApiResponseResult};
 use crate::AppState;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Query, State};
 use axum::routing::get;
-use axum::Router;
 use common_define::db::{
     DecodeMap, DecodeScriptEntity, DeviceLoraNodeEntity, DevicesColumn, DevicesEntity, Eui, Key,
-    LoRaAddr, SnapDeviceEntity, UsersEntity,
+    SnapDeviceEntity, UsersEntity,
 };
 use common_define::lora::{LoRaJoinType, LoRaRegion};
 use common_define::product::{DeviceType, ProductType};
@@ -19,7 +18,6 @@ use sea_orm::{
     QueryOrder,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::str::FromStr;
 use tracing::warn;
 use utoipa::OpenApi;

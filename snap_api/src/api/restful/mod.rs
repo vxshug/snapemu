@@ -1,13 +1,11 @@
 use crate::{service, AppState};
 
 use crate::api::restful::device::register_query;
-use crate::load::load_config;
+use axum::middleware;
 use axum::routing::{get, post};
-use axum::{middleware, Router};
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
-use utoipa::{Modify, OpenApi};
+use utoipa::Modify;
 use utoipa_axum::router::OpenApiRouter;
-use utoipa_scalar::{Scalar, Servable};
 
 mod admin;
 mod app;
@@ -28,15 +26,15 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .nest("/decode", decode::router())
         // .nest("/show", show::router())
         .layer(middleware::from_fn(service::user::auth));
-    let api = OpenApiRouter::new()
+
+    OpenApiRouter::new()
         .route("/contact", post(contact::contact_us))
         .route("/app/version", get(app::version))
         .route("/device/query/register", post(register_query))
         // .nest("/verify", verify::router())
         .nest("/admin", admin::router())
         .nest("/user", user::router())
-        .merge(api);
-    api
+        .merge(api)
 }
 
 struct SecurityAddon;

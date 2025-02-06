@@ -1,6 +1,5 @@
 use crate::{service, AppState};
-use axum::routing::{post, put};
-use axum::{middleware, Router};
+use axum::middleware;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 

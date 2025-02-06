@@ -1,9 +1,8 @@
 use crate::error::{ApiError, ApiResponseResult};
 use crate::service::user::{save_picture, Picture};
 use crate::{tt, AppState};
-use axum::extract::{Multipart, Query, State};
-use axum::routing::{get, post};
-use axum::Router;
+use axum::extract::{Multipart, State};
+use axum::routing::get;
 use common_define::db::{SnapProductInfoActiveModel, SnapProductInfoEntity};
 use common_define::time::Timestamp;
 use common_define::Id;
@@ -95,7 +94,7 @@ async fn post_product(
     let mut describption: Option<String> = None;
     let mut product_image: Option<_> = None;
 
-    while let Some(mut field) =
+    while let Some(field) =
         multipart.next_field().await.map_err(|e| ApiError::User(e.to_string().into()))?
     {
         if let Some(field_name) = field.name() {

@@ -72,7 +72,7 @@ impl TryFrom<&str> for LoRaAddr {
     type Error = DbErr;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if value.len() != 8 {
-            return Err(DbErr::Len(format!("addr most 8 byte, found ")));
+            return Err(DbErr::Len("addr most 8 byte, found ".to_string()));
         }
         let mut b = [0; 4];
         hex::decode_to_slice(value, &mut b).map_err(|_| DbErr::Parse)?;

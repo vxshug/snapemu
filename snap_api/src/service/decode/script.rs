@@ -82,8 +82,7 @@ impl DecodeService {
             lang: DecodeLang::JS,
             script: item.script,
             map,
-        }
-        .into())
+        })
     }
 
     pub(crate) async fn delete_script<C: ConnectionTrait>(
@@ -159,8 +158,7 @@ impl DecodeService {
             lang: DecodeLang::JS,
             script: item.script,
             map,
-        }
-        .into())
+        })
     }
     pub(crate) async fn list<C: ConnectionTrait>(
         user: &CurrentUser,

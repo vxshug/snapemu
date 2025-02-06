@@ -169,7 +169,7 @@ pub(crate) struct QueryIO<'a> {
 
 impl<'a> QueryIO<'a> {
     pub(crate) fn new(data: &'a [u8]) -> Result<QueryIO<'a>, DataError> {
-        if data.len() == 0 {
+        if data.is_empty() {
             Ok(Self { data })
         } else if data[0] == 0xFF {
             Err(DataError::from("query id error"))
@@ -271,7 +271,7 @@ impl<'a> LoRaIOFormater<'a> {
     }
     pub(crate) fn format(&self) -> Result<IOComamd, DataError> {
         tracing::info!("command {:?}", self.payload);
-        let command_type = self.payload.get(0).ok_or(DataError::from("not found command"))?;
+        let command_type = self.payload.first().ok_or(DataError::from("not found command"))?;
         match command_type {
             0 => Ok(IOComamd::DeviceInfo(DeviceInfo::new(&self.payload[1..])?)),
             1 => Ok(IOComamd::UpdateDeviceInfo(UpdateDeviceInfo::new(&self.payload[1..])?)),
@@ -294,7 +294,7 @@ impl<'a> LoRaPayloadFormater<'a> {
         Self { header, payload }
     }
     pub(crate) fn format(&self) -> Result<LoRaPayloadType, DataError> {
-        let port = self.header.f_port().ok_or(format!("Not foun port"))?;
+        let port = self.header.f_port().ok_or("Not foun port".to_string())?;
         match port {
             2 => {
                 let format = LoRaDataFormater::new(self.payload);
@@ -395,19 +395,19 @@ impl UpdateIOBuilder {
         assert!(pin < 16);
         if self.mutil {
             if pin < 8 {
-                self.data[3] = self.data[3] | (1 << pin);
+                self.data[3] |= 1 << pin;
                 if value {
-                    self.data[5] = self.data[5] | (1 << pin);
+                    self.data[5] |= 1 << pin;
                 } else {
-                    self.data[5] = self.data[5] & (!(1 << pin));
+                    self.data[5] &= !(1 << pin);
                 }
             } else {
                 let pin = pin - 8;
-                self.data[2] = self.data[2] | (1 << pin);
+                self.data[2] |= 1 << pin;
                 if value {
-                    self.data[4] = self.data[4] | (1 << pin);
+                    self.data[4] |= 1 << pin;
                 } else {
-                    self.data[4] = self.data[4] & (!(1 << pin));
+                    self.data[4] &= !(1 << pin);
                 }
             }
         } else {

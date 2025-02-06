@@ -5,7 +5,6 @@ use crate::service::data::DataService;
 use crate::service::device::DeviceService;
 use crate::{get_current_user, AppState};
 use axum::extract::State;
-use axum::routing::get;
 use common_define::Id;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;

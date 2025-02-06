@@ -683,7 +683,7 @@ impl DeviceService {
         if devices.is_empty() {
             return Ok(HashMap::new());
         }
-        let devices_ids = itertools::join(devices.into_iter().map(|i| i.0), ",");
+        let devices_ids = itertools::join(devices.iter().map(|i| i.0), ",");
         let device_data: Vec<DeviceDataModel> = DeviceDataEntity::find()
             .from_raw_sql(Statement::from_sql_and_values(
                 SEA_ORMDB_BACKEND,

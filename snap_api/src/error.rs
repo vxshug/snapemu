@@ -1,4 +1,4 @@
-use crate::{service, AppString};
+use crate::AppString;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use common_define::Id;
@@ -147,8 +147,6 @@ pub enum ApiStatus {
     Db,
     Device,
 }
-
-use service::user::Token;
 
 /// restful API Response
 #[derive(Serialize, Deserialize, utoipa::ToSchema)]

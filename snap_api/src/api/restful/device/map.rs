@@ -4,8 +4,6 @@ use crate::service::device::device::DeviceWithAuth;
 use crate::service::device::DeviceService;
 use crate::{get_current_user, AppState};
 use axum::extract::State;
-use axum::routing::post;
-use axum::Router;
 use common_define::db::{
     CustomDecodeMap, CustomMapItem, SnapDeviceDataNameActiveModel, SnapDeviceDataNameColumn,
     SnapDeviceDataNameEntity,

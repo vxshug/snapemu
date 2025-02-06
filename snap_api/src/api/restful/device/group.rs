@@ -5,8 +5,6 @@ use crate::service::device::group::{
 };
 use crate::{get_current_user, tt, AppState, AppString};
 use axum::extract::State;
-use axum::routing::{delete, post};
-use axum::{Json, Router};
 use common_define::Id;
 use sea_orm::TransactionTrait;
 use utoipa_axum::router::OpenApiRouter;

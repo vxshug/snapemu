@@ -5,7 +5,7 @@ use crate::protocol::lora::payload::LoRaPayload;
 use crate::{decode, DeviceError, DeviceResult, GLOBAL_DEPEND, GLOBAL_STATE};
 use common_define::db::{
     DbDecodeData, DeviceDataActiveModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DevicesEntity,
-    Eui, Key, LoRaAddr,
+    Eui, LoRaAddr,
 };
 use common_define::decode::LastDecodeData;
 use common_define::last_device_data_key;

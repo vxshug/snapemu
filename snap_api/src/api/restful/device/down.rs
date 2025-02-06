@@ -4,8 +4,6 @@ use crate::service::device::device::DeviceWithAuth;
 use crate::service::device::DeviceService;
 use crate::{get_current_user, AppState};
 use axum::extract::State;
-use axum::routing::{delete, get, post};
-use axum::Router;
 use base64::Engine;
 use common_define::db::{SnapDownLinkActiveModel, SnapDownLinkColumn, SnapDownLinkEntity};
 use common_define::event::{DeviceEvent, DownEvent};
@@ -187,10 +185,10 @@ async fn delete_template(
         .await?
         .ok_or_else(|| ApiError::User("no template found".into()))?;
     if template.user_id != user.id {
-        return Err(ApiError::User("invalid user".into()).into());
+        return Err(ApiError::User("invalid user".into()));
     }
     if template.device_id != device_id {
-        return Err(ApiError::User("invalid device".into()).into());
+        return Err(ApiError::User("invalid device".into()));
     }
     template.delete(&state.db).await?;
     Ok(().into())

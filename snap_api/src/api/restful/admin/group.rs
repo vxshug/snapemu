@@ -2,10 +2,7 @@ use crate::error::{ApiError, ApiResponseResult};
 use crate::AppState;
 use axum::extract::{Query, State};
 use axum::routing::get;
-use axum::Router;
-use common_define::db::{
-    DeviceGroupColumn, DeviceGroupEntity, DevicesColumn, DevicesEntity, UsersColumn, UsersEntity,
-};
+use common_define::db::{DeviceGroupColumn, DeviceGroupEntity, UsersEntity};
 use common_define::time::Timestamp;
 use common_define::Id;
 use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder};

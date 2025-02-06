@@ -95,7 +95,7 @@ impl<'de> serde::Deserialize<'de> for Key {
         D: Deserializer<'de>,
     {
         let s = <&str as serde::Deserialize>::deserialize(deserializer)?;
-        Ok(s.parse().map_err(D::Error::custom)?)
+        s.parse().map_err(D::Error::custom)
     }
 }
 

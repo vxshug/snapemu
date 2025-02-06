@@ -1,4 +1,3 @@
-use axum::Router;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 

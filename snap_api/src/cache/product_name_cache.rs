@@ -38,9 +38,9 @@ impl ProductNameCache {
         match product_id {
             Some(id) => match g.get(&id) {
                 Some(g) => Some(g.clone()),
-                None => g.get(&Id::new(1)).map(|g| g.clone()),
+                None => g.get(&Id::new(1)).cloned(),
             },
-            None => g.get(&Id::new(1)).map(|g| g.clone()),
+            None => g.get(&Id::new(1)).cloned(),
         }
     }
     pub fn get_all_product(&self) -> Vec<SnapProductInfoModel> {

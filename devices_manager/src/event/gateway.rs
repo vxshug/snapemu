@@ -53,7 +53,7 @@ impl GatewayEvent {
                                 device: gateway_id,
                                 event: common_define::event::DeviceEventType::Gateway(
                                     common_define::event::lora_gateway::GatewayEvent {
-                                        eui: state.eui.clone(),
+                                        eui: state.eui,
                                         time: Timestamp::from_timestamp_millis(
                                             state.time.timestamp_millis(),
                                         )

@@ -88,7 +88,7 @@ impl UserService {
                     )
                     .await?;
                 if let Some(email) = &auth_user.email {
-                    user_manager.active_email(auth_user.id, &email).await?;
+                    user_manager.active_email(auth_user.id, email).await?;
                 }
                 (auth_user.id, auth_user.email)
             }

@@ -1,22 +1,18 @@
 #![allow(dead_code)]
 
 use crate::api::restful;
-use async_graphql::http::GraphiQLSource;
 
 use axum::http::{HeaderName, HeaderValue, Method, Request};
 use axum::middleware::Next;
-use axum::response::{Html, IntoResponse, Response};
+use axum::response::Response;
 
 use axum::{http, middleware, Extension, Router};
-use common_define::db::{
-    DeviceDataActiveModel, DeviceDataColumn, DeviceDataEntity, DeviceDataModel,
-    SnapProductInfoEntity,
-};
+use common_define::db::{DeviceDataColumn, DeviceDataEntity, SnapProductInfoEntity};
 use common_define::event::DeviceEvent;
 use deadpool::managed::PoolConfig;
 use futures_util::StreamExt;
 use once_cell::sync::Lazy;
-use sea_orm::{ColumnTrait, DbErr, DeleteResult, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use snap_config::SnapConfig;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
@@ -54,7 +50,7 @@ FROM (
 ) AS subquery
 WHERE row_num <= 2;";
 
-static GLOBAL_PRODUCT_NAME: Lazy<ProductNameCache> = Lazy::new(|| ProductNameCache::default());
+static GLOBAL_PRODUCT_NAME: Lazy<ProductNameCache> = Lazy::new(ProductNameCache::default);
 
 static MODEL_MAP: Lazy<snap_model::ModelMap> = Lazy::new(|| {
     let config = load_config();

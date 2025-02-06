@@ -1,7 +1,7 @@
 use crate::error::{ApiError, ApiResponseResult, ApiResult};
 use crate::man::RedisClient;
 use crate::service::user::{RedisToken, UserService};
-use crate::{run_with_user, tt, RedisPool};
+use crate::{run_with_user, tt};
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use axum::http::{Request, StatusCode};

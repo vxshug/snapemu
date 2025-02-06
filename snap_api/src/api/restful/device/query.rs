@@ -5,8 +5,6 @@ use crate::service::device::define::DeviceParameter;
 use crate::service::lorawan::JoinParam;
 use crate::{tt, AppState};
 use axum::extract::State;
-use axum::routing::post;
-use axum::Router;
 use common_define::db::{
     DeviceLoraNodeColumn, DeviceLoraNodeEntity, DevicesColumn, DevicesEntity, Eui, LoRaAddr,
 };

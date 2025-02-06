@@ -1,11 +1,9 @@
 use crate::error::ApiError;
 use crate::man::{RedisClient, RedisRecv};
-use crate::{get_current_user, tt, AppState};
-use axum::extract::State;
+use crate::{tt, AppState};
 use axum::response::sse::{Event, KeepAlive};
 use axum::response::{IntoResponse, Response, Sse};
 use axum::routing::get;
-use axum::{Extension, Router};
 use common_define::event::PlatformLog;
 use tokio_stream::StreamExt;
 use utoipa::OpenApi;

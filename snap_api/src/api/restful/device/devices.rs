@@ -122,7 +122,7 @@ async fn get_device(
         device_type: device.device_type.into(),
         product_type: None,
         create_time: device.create_time.into(),
-        active_time: device.active_time.into(),
+        active_time: device.active_time,
         data: None,
         script: device.script,
         product_id,

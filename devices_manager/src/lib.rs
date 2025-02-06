@@ -111,18 +111,18 @@ impl From<()> for DeviceError {
 
 type DeviceResult<T = ()> = Result<T, DeviceError>;
 
-static GLOBAL_TOPIC: Lazy<Topic> = Lazy::new(|| load::load_topic());
+static GLOBAL_TOPIC: Lazy<Topic> = Lazy::new(load::load_topic);
 
 static GLOBAL_DEPEND: Lazy<DecodeManager> = Lazy::new(|| {
     let rt = JsManager::new();
     DecodeManager::new(rt.clone())
 });
 
-static GLOBAL_JS_RUNTIME: Lazy<DownloadDataCache> = Lazy::new(|| DownloadDataCache::default());
+static GLOBAL_JS_RUNTIME: Lazy<DownloadDataCache> = Lazy::new(DownloadDataCache::default);
 
-static GLOBAL_DOWNLOAD: Lazy<DownloadDataCache> = Lazy::new(|| DownloadDataCache::default());
+static GLOBAL_DOWNLOAD: Lazy<DownloadDataCache> = Lazy::new(DownloadDataCache::default);
 
-static GLOBAL_STATE: Lazy<State> = Lazy::new(|| load::load_state());
+static GLOBAL_STATE: Lazy<State> = Lazy::new(load::load_state);
 
 struct Topic {
     data: &'static str,

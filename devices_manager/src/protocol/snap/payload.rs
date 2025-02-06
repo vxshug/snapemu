@@ -202,7 +202,7 @@ impl DownloadData {
         Self { eui, port: 0, option: 0, count: 0 }
     }
     pub fn set_ack(mut self) -> Self {
-        self.option = self.option | 0x40;
+        self.option |= 0x40;
         self
     }
     pub fn set_eui(mut self, eui: Eui) -> Self {

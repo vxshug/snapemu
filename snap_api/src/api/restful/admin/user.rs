@@ -3,10 +3,8 @@ use crate::error::{ApiError, ApiResponseResult};
 use crate::AppState;
 use axum::extract::{Query, State};
 use axum::routing::get;
-use axum::Router;
 use common_define::db::{
-    DeviceGroupColumn, DeviceGroupEntity, DevicesColumn, DevicesEntity, Eui, UsersColumn,
-    UsersEntity,
+    DeviceGroupColumn, DeviceGroupEntity, DevicesEntity, Eui, UsersColumn, UsersEntity,
 };
 use common_define::product::DeviceType;
 use common_define::time::Timestamp;
@@ -170,7 +168,7 @@ async fn get_user_info(
                     name: it.name,
                     description: it.description,
                     enable: it.enable,
-                    device_type: DeviceType::from(it.device_type),
+                    device_type: it.device_type,
                     create_time: it.create_time,
                 })
                 .collect();

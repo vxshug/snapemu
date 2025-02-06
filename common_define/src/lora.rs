@@ -144,7 +144,7 @@ impl Deref for Key {
 
 impl Key {
     pub(crate) fn string(&self) -> String {
-        hex::encode_upper(&self.0 .0)
+        hex::encode_upper(self.0 .0)
     }
 }
 
@@ -191,7 +191,7 @@ impl<'de> serde::Deserialize<'de> for Key {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        s.parse().map_err(|e| serde::de::Error::custom(e))
+        s.parse().map_err(serde::de::Error::custom)
     }
 }
 
@@ -200,6 +200,6 @@ impl redis::ToRedisArgs for Key {
     where
         W: ?Sized + redis::RedisWrite,
     {
-        out.write_arg(hex::encode_upper(&self.0 .0).as_bytes())
+        out.write_arg(hex::encode_upper(self.0 .0).as_bytes())
     }
 }
