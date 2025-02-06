@@ -119,11 +119,7 @@ async fn get_template(
     let DeviceWithAuth { auth, device } =
         DeviceService::query_one_with_auth(user.id, id, &state.db).await?;
     let templates = SnapDownLinkEntity::find()
-        .filter(
-            SnapDownLinkColumn::UserId
-                .eq(user.id)
-                .and(SnapDownLinkColumn::DeviceId.eq(id)),
-        )
+        .filter(SnapDownLinkColumn::UserId.eq(user.id).and(SnapDownLinkColumn::DeviceId.eq(id)))
         .all(&state.db)
         .await?;
     let v: Vec<_> = templates
@@ -167,13 +163,7 @@ async fn post_template(
         create_time: ActiveValue::Set(Timestamp::now()),
     };
     let ok = model.insert(&state.db).await?;
-    Ok(DownTemplateItem {
-        id: ok.id,
-        name: ok.name,
-        data: ok.data,
-        port: ok.port,
-    }
-    .into())
+    Ok(DownTemplateItem { id: ok.id, name: ok.name, data: ok.data, port: ok.port }.into())
 }
 
 /// Delete the template for sending data
@@ -205,4 +195,3 @@ async fn delete_template(
     template.delete(&state.db).await?;
     Ok(().into())
 }
-

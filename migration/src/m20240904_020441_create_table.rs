@@ -25,8 +25,8 @@ pub fn big_key_auto<T: IntoIden>(name: T) -> ColumnDef {
 }
 
 mod user {
-    use sea_orm_migration::{prelude::*, schema::*};
     use crate::m20240904_020441_create_table::big_key_auto;
+    use sea_orm_migration::{prelude::*, schema::*};
 
     pub async fn up(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
         manager
@@ -44,36 +44,49 @@ mod user {
                     .col(boolean(SnapUsers::Active).default(false))
                     .col(text(SnapUsers::ActiveToken).default(""))
                     .col(text(SnapUsers::Picture).default(""))
-                    .col(timestamp_with_time_zone(SnapUsers::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapUsers::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
 
-        manager.create_table(
-            Table::create()
-                .table(SnapUsersTripartite::Table)
-                .if_not_exists()
-                .col(big_key_auto(SnapUsersTripartite::Id))
-                .col(big_integer(SnapUsersTripartite::UserId))
-                .col(text(SnapUsersTripartite::UniqueId))
-                .col(text(SnapUsersTripartite::Platform))
-                .col(timestamp_with_time_zone(SnapUsersTripartite::CreateTime).default(Expr::current_timestamp()))
-                .to_owned(),
-        ).await?;
+        manager
+            .create_table(
+                Table::create()
+                    .table(SnapUsersTripartite::Table)
+                    .if_not_exists()
+                    .col(big_key_auto(SnapUsersTripartite::Id))
+                    .col(big_integer(SnapUsersTripartite::UserId))
+                    .col(text(SnapUsersTripartite::UniqueId))
+                    .col(text(SnapUsersTripartite::Platform))
+                    .col(
+                        timestamp_with_time_zone(SnapUsersTripartite::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
+                    .to_owned(),
+            )
+            .await?;
 
-        manager.create_table(
-            Table::create()
-                .table(SnapUserToken::Table)
-                .if_not_exists()
-                .col(big_key_auto(SnapUserToken::Id))
-                .col(big_integer(SnapUserToken::UserId))
-                .col(text(SnapUserToken::Token))
-                .col(text(SnapUserToken::TokenType))
-                .col(boolean(SnapUserToken::Enable))
-                .col(timestamp_with_time_zone(SnapUserToken::ExpiresTime))
-                .col(timestamp_with_time_zone(SnapUserToken::CreateTime).default(Expr::current_timestamp()))
-                .to_owned(),
-        ).await
+        manager
+            .create_table(
+                Table::create()
+                    .table(SnapUserToken::Table)
+                    .if_not_exists()
+                    .col(big_key_auto(SnapUserToken::Id))
+                    .col(big_integer(SnapUserToken::UserId))
+                    .col(text(SnapUserToken::Token))
+                    .col(text(SnapUserToken::TokenType))
+                    .col(boolean(SnapUserToken::Enable))
+                    .col(timestamp_with_time_zone(SnapUserToken::ExpiresTime))
+                    .col(
+                        timestamp_with_time_zone(SnapUserToken::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
+                    .to_owned(),
+            )
+            .await
     }
     pub async fn down(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
         manager.drop_table(Table::drop().table(SnapUsers::Table).to_owned()).await?;
@@ -93,7 +106,7 @@ mod user {
         Active,
         ActiveToken,
         Picture,
-        CreateTime
+        CreateTime,
     }
 
     #[derive(DeriveIden)]
@@ -103,7 +116,7 @@ mod user {
         UserId,
         UniqueId,
         Platform,
-        CreateTime
+        CreateTime,
     }
 
     #[derive(DeriveIden)]
@@ -120,8 +133,8 @@ mod user {
 }
 
 mod device {
-    use sea_orm_migration::{prelude::*, schema::*};
     use crate::m20240904_020441_create_table::big_key_auto;
+    use sea_orm_migration::{prelude::*, schema::*};
 
     pub async fn up(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
         manager
@@ -134,7 +147,10 @@ mod device {
                     .col(text(SnapDeviceGroup::Description))
                     .col(boolean(SnapDeviceGroup::DefaultGroup))
                     .col(big_integer(SnapDeviceGroup::Owner))
-                    .col(timestamp_with_time_zone(SnapDeviceGroup::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapDeviceGroup::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -152,14 +168,16 @@ mod device {
             )
             .await?;
 
-        manager.create_index(
-            Index::create()
-                .if_not_exists()
-                .name("func-device-idx")
-                .table(SnapDeviceFunction::Table)
-                .col(SnapDeviceFunction::Device)
-                .to_owned()
-        ).await?;
+        manager
+            .create_index(
+                Index::create()
+                    .if_not_exists()
+                    .name("func-device-idx")
+                    .table(SnapDeviceFunction::Table)
+                    .col(SnapDeviceFunction::Device)
+                    .to_owned(),
+            )
+            .await?;
         manager
             .create_table(
                 Table::create()
@@ -170,7 +188,10 @@ mod device {
                     .col(text(SnapProductInfo::Name))
                     .col(text(SnapProductInfo::Description))
                     .col(text(SnapProductInfo::Image))
-                    .col(timestamp_with_time_zone(SnapProductInfo::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapProductInfo::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -191,7 +212,10 @@ mod device {
                     .col(big_integer_null(SnapDevices::ProductId))
                     .col(text(SnapDevices::DeviceType))
                     .col(timestamp_with_time_zone_null(SnapDevices::ActiveTime))
-                    .col(timestamp_with_time_zone(SnapDevices::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapDevices::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -207,7 +231,10 @@ mod device {
                     .col(text(SnapIntegrationMqtt::Name))
                     .col(boolean(SnapIntegrationMqtt::Enable))
                     .col(text(SnapIntegrationMqtt::Token))
-                    .col(timestamp_with_time_zone(SnapIntegrationMqtt::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapIntegrationMqtt::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -221,44 +248,55 @@ mod device {
                     .col(big_integer(SnapDeviceMapGroup::DeviceId))
                     .col(big_integer(SnapDeviceMapGroup::GroupId))
                     .col(integer(SnapDeviceMapGroup::DevOrder))
-                    .col(timestamp_with_time_zone(SnapDeviceMapGroup::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapDeviceMapGroup::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
-        manager.create_index(
-            Index::create()
-                .if_not_exists()
-                .name("device-user-map-group-idx")
-                .table(SnapDeviceMapGroup::Table)
-                .col(SnapDeviceMapGroup::UserId)
-                .col(SnapDeviceMapGroup::DeviceId)
-                .to_owned()
-        ).await?;
-        manager.create_index(
-            Index::create()
-                .if_not_exists()
-                .name("group-user-map-device-idx")
-                .table(SnapDeviceMapGroup::Table)
-                .col(SnapDeviceMapGroup::UserId)
-                .col(SnapDeviceMapGroup::GroupId)
-                .to_owned()
-        ).await?;
-        manager.create_index(
-            Index::create()
-                .if_not_exists()
-                .name("device-map-group-idx")
-                .table(SnapDeviceMapGroup::Table)
-                .col(SnapDeviceMapGroup::DeviceId)
-                .to_owned()
-        ).await?;
-        manager.create_index(
-            Index::create()
-                .if_not_exists()
-                .name("group-map-device-idx")
-                .table(SnapDeviceMapGroup::Table)
-                .col(SnapDeviceMapGroup::GroupId)
-                .to_owned()
-        ).await?;
+        manager
+            .create_index(
+                Index::create()
+                    .if_not_exists()
+                    .name("device-user-map-group-idx")
+                    .table(SnapDeviceMapGroup::Table)
+                    .col(SnapDeviceMapGroup::UserId)
+                    .col(SnapDeviceMapGroup::DeviceId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .if_not_exists()
+                    .name("group-user-map-device-idx")
+                    .table(SnapDeviceMapGroup::Table)
+                    .col(SnapDeviceMapGroup::UserId)
+                    .col(SnapDeviceMapGroup::GroupId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .if_not_exists()
+                    .name("device-map-group-idx")
+                    .table(SnapDeviceMapGroup::Table)
+                    .col(SnapDeviceMapGroup::DeviceId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .if_not_exists()
+                    .name("group-map-device-idx")
+                    .table(SnapDeviceMapGroup::Table)
+                    .col(SnapDeviceMapGroup::GroupId)
+                    .to_owned(),
+            )
+            .await?;
         manager
             .create_table(
                 Table::create()
@@ -359,19 +397,24 @@ mod device {
                     .col(boolean(SnapDeviceAuthority::Modify))
                     .col(boolean(SnapDeviceAuthority::Delete))
                     .col(boolean(SnapDeviceAuthority::Share))
-                    .col(timestamp_with_time_zone(SnapDeviceAuthority::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapDeviceAuthority::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
-        manager.create_index(
-            Index::create()
-                .if_not_exists()
-                .name("share-map-idx")
-                .table(SnapDeviceAuthority::Table)
-                .col(SnapDeviceAuthority::ShareType)
-                .col(SnapDeviceAuthority::ShareId)
-                .to_owned()
-        ).await;
+        manager
+            .create_index(
+                Index::create()
+                    .if_not_exists()
+                    .name("share-map-idx")
+                    .table(SnapDeviceAuthority::Table)
+                    .col(SnapDeviceAuthority::ShareType)
+                    .col(SnapDeviceAuthority::ShareId)
+                    .to_owned(),
+            )
+            .await;
         manager
             .create_table(
                 Table::create()
@@ -384,7 +427,10 @@ mod device {
                     .col(text(SnapDownlink::Data))
                     .col(integer(SnapDownlink::Order))
                     .col(integer(SnapDownlink::Port))
-                    .col(timestamp_with_time_zone(SnapDownlink::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapDownlink::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await
@@ -562,7 +608,6 @@ mod device {
         CreateTime,
     }
 
-
     #[derive(DeriveIden)]
     enum SnapDownlink {
         Table,
@@ -578,8 +623,8 @@ mod device {
 }
 
 mod data {
-    use sea_orm_migration::{prelude::*, schema::*};
     use crate::m20240904_020441_create_table::big_key_auto;
+    use sea_orm_migration::{prelude::*, schema::*};
 
     pub async fn up(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
         manager
@@ -591,7 +636,10 @@ mod data {
                     .col(big_integer(SnapDeviceData::DeviceId))
                     .col(json(SnapDeviceData::Data))
                     .col(text(SnapDeviceData::Bytes))
-                    .col(timestamp_with_time_zone(SnapDeviceData::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapDeviceData::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -605,7 +653,10 @@ mod data {
                     .col(big_integer(SnapDeviceDataName::Owner))
                     .col(text(SnapDeviceDataName::Name))
                     .col(json(SnapDeviceDataName::Map))
-                    .col(timestamp_with_time_zone(SnapDeviceDataName::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapDeviceDataName::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -620,8 +671,14 @@ mod data {
                     .col(big_integer(SnapDecodeScript::Owner))
                     .col(text(SnapDecodeScript::Name))
                     .col(json(SnapDecodeScript::Map))
-                    .col(timestamp_with_time_zone(SnapDecodeScript::CreateTime).default(Expr::current_timestamp()))
-                    .col(timestamp_with_time_zone(SnapDecodeScript::ModifyTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapDecodeScript::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        timestamp_with_time_zone(SnapDecodeScript::ModifyTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await
@@ -631,7 +688,6 @@ mod data {
         manager.drop_table(Table::drop().table(SnapDeviceData::Table).to_owned()).await?;
         manager.drop_table(Table::drop().table(SnapDeviceDataName::Table).to_owned()).await?;
         manager.drop_table(Table::drop().table(SnapDecodeScript::Table).to_owned()).await
-
     }
 
     #[derive(DeriveIden)]
@@ -654,7 +710,7 @@ mod data {
         Map,
         CreateTime,
     }
-    
+
     #[derive(DeriveIden)]
     enum SnapDecodeScript {
         Table,
@@ -670,8 +726,8 @@ mod data {
 }
 
 mod admin {
-    use sea_orm_migration::{prelude::*, schema::*};
     use crate::m20240904_020441_create_table::big_key_auto;
+    use sea_orm_migration::{prelude::*, schema::*};
 
     pub async fn up(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
         manager
@@ -681,9 +737,13 @@ mod admin {
                     .if_not_exists()
                     .col(big_key_auto(SnapAdmin::Id))
                     .col(uuid(SnapAdmin::UId))
-                    .col(timestamp_with_time_zone(SnapAdmin::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapAdmin::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
-            ).await?;
+            )
+            .await?;
         manager
             .create_table(
                 Table::create()
@@ -692,9 +752,13 @@ mod admin {
                     .col(big_key_auto(SnapConfig::Id))
                     .col(text_uniq(SnapConfig::Name))
                     .col(text_uniq(SnapConfig::Value))
-                    .col(timestamp_with_time_zone(SnapConfig::CreateTime).default(Expr::current_timestamp()))
+                    .col(
+                        timestamp_with_time_zone(SnapConfig::CreateTime)
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
-            ).await
+            )
+            .await
     }
 
     pub async fn down(manager: &SchemaManager<'_>) -> Result<(), DbErr> {

@@ -1,19 +1,20 @@
+use crate::error::{ApiError, ApiResponseResult};
+use crate::AppState;
 use axum::extract::{Query, State};
-use axum::Router;
 use axum::routing::get;
+use axum::Router;
+use common_define::db::{
+    DeviceGroupColumn, DeviceGroupEntity, DevicesColumn, DevicesEntity, UsersColumn, UsersEntity,
+};
+use common_define::time::Timestamp;
+use common_define::Id;
 use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder};
 use serde::{Deserialize, Serialize};
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
-use common_define::db::{DeviceGroupColumn, DeviceGroupEntity, DevicesColumn, DevicesEntity, UsersColumn, UsersEntity};
-use common_define::Id;
-use common_define::time::Timestamp;
-use crate::AppState;
-use crate::error::{ApiError, ApiResponseResult};
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new()
-        .route("/", get(get_all_group))
+    OpenApiRouter::new().route("/", get(get_all_group))
 }
 
 #[derive(Deserialize, utoipa::IntoParams)]
@@ -71,12 +72,15 @@ async fn get_all_group(
         .paginate(&state.db, 50);
     let page_count = groups_pages.num_pages().await?;
     if page_count < page {
-        return Err(ApiError::User(format!("page {} is more than max {}", page, page_count).into()))
+        return Err(ApiError::User(
+            format!("page {} is more than max {}", page, page_count).into(),
+        ));
     }
     let groups = groups_pages.fetch_page(page).await?;
 
-    let v = groups.into_iter().map(|(group, user)| {
-        GroupPageItem {
+    let v = groups
+        .into_iter()
+        .map(|(group, user)| GroupPageItem {
             id: group.id,
             name: group.name,
             description: group.description,
@@ -84,11 +88,7 @@ async fn get_all_group(
             owner: user.map(|u| u.user_login),
             owner_id: group.owner,
             create_time: group.create_time,
-        }
-    }).collect();
-    Ok(GroupPages {
-        page: page,
-        count: page_count,
-        users: v,
-    }.into())
+        })
+        .collect();
+    Ok(GroupPages { page, count: page_count, users: v }.into())
 }

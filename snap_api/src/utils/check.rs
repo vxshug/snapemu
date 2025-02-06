@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 pub struct Checker;
 
-
 const HEX: &[u8; 22] = b"0123456789abcdefABCDEF";
 const USERNAME: &[u8; 63] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-";
 
@@ -38,7 +37,7 @@ impl Checker {
     pub fn check_eui(eui: &str, scan_eui: &str) -> bool {
         if eui.len() == 16 && scan_eui.len() == 32 {
             &scan_eui.as_bytes()[16..] == eui.as_bytes()
-        } else { 
+        } else {
             false
         }
     }

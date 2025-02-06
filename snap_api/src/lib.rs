@@ -7,41 +7,41 @@ use axum::http::{HeaderName, HeaderValue, Method, Request};
 use axum::middleware::Next;
 use axum::response::{Html, IntoResponse, Response};
 
-use axum::{middleware, Extension, Router, http};
+use axum::{http, middleware, Extension, Router};
+use common_define::db::{
+    DeviceDataActiveModel, DeviceDataColumn, DeviceDataEntity, DeviceDataModel,
+    SnapProductInfoEntity,
+};
+use common_define::event::DeviceEvent;
 use deadpool::managed::PoolConfig;
 use futures_util::StreamExt;
 use once_cell::sync::Lazy;
-use sea_orm::{DbErr, DeleteResult, EntityTrait, QueryFilter, ColumnTrait};
+use sea_orm::{ColumnTrait, DbErr, DeleteResult, EntityTrait, QueryFilter};
+use snap_config::SnapConfig;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing::{info, warn};
-use utoipa::{Modify, OpenApi};
 use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
+use utoipa::{Modify, OpenApi};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
-use common_define::db::{DeviceDataActiveModel, DeviceDataColumn, DeviceDataEntity, DeviceDataModel, SnapProductInfoEntity};
-use common_define::event::DeviceEvent;
-use snap_config::SnapConfig;
-
-
 
 pub(crate) mod api;
+pub(crate) mod cache;
 pub(crate) mod error;
+mod load;
+mod local_key;
 pub(crate) mod man;
 pub(crate) mod service;
 pub(crate) mod sub;
 pub(crate) mod utils;
-pub(crate) mod cache;
-mod load;
-mod local_key;
-pub use local_key::*;
-use migration::MigratorTrait;
 use crate::cache::ProductNameCache;
 use crate::load::{load_config, load_db, store_config};
 use crate::man::{NodeEventManager, RedisClient, RedisRecv};
 use crate::service::user::UserLang;
-
+pub use local_key::*;
+use migration::MigratorTrait;
 
 const SEA_ORMDB_BACKEND: sea_orm::DbBackend = sea_orm::DbBackend::Postgres;
 
@@ -54,20 +54,17 @@ FROM (
 ) AS subquery
 WHERE row_num <= 2;";
 
-static GLOBAL_PRODUCT_NAME: Lazy<ProductNameCache> = Lazy::new(|| {
-    ProductNameCache::default()
-});
+static GLOBAL_PRODUCT_NAME: Lazy<ProductNameCache> = Lazy::new(|| ProductNameCache::default());
 
 static MODEL_MAP: Lazy<snap_model::ModelMap> = Lazy::new(|| {
     let config = load_config();
-    snap_model::load_model_file(config.api.model.as_ref().map(|p| p.path.as_str() ))
+    snap_model::load_model_file(config.api.model.as_ref().map(|p| p.path.as_str()))
 });
-
 
 #[derive(Clone)]
 struct AppState {
     db: sea_orm::DatabaseConnection,
-    redis: RedisClient
+    redis: RedisClient,
 }
 
 const USER_TAG: &str = "user";
@@ -84,10 +81,7 @@ impl Modify for AdminSecurityAddon {
             components.add_security_scheme(
                 "Authorization",
                 SecurityScheme::Http(
-                    HttpBuilder::new()
-                        .scheme(HttpAuthScheme::Bearer)
-                        .bearer_format("JWT")
-                        .build(),
+                    HttpBuilder::new().scheme(HttpAuthScheme::Bearer).bearer_format("JWT").build(),
                 ),
             )
         }
@@ -123,11 +117,10 @@ type RedisPool = deadpool_redis::Pool;
 type RedisConnection = deadpool_redis::Connection;
 
 fn locale() -> &'static str {
-    get_lang()
-        .as_static_str()
+    get_lang().as_static_str()
 }
 
-fn load_redis(config: &SnapConfig) -> deadpool_redis::Pool  {
+fn load_redis(config: &SnapConfig) -> deadpool_redis::Pool {
     let host = config.get_string("redis.host").unwrap();
     let port = config.get_i64("redis.port").unwrap_or(6379);
     let db = config.get_i64("redis.db").unwrap_or(0);
@@ -146,7 +139,8 @@ async fn clean_timeout_device_data(db: sea_orm::DatabaseConnection) {
         match DeviceDataEntity::delete_many()
             .filter(DeviceDataColumn::CreateTime.lt(timeout))
             .exec(&db)
-            .await {
+            .await
+        {
             Ok(_) => {
                 info!("Cleaning timeout device data for {}", timeout);
             }
@@ -179,9 +173,7 @@ pub async fn run(config_path: String, env_prefix: String) {
             let mut message = consumer.message();
             while let Some(msg) = message.next().await {
                 match serde_json::from_slice::<DeviceEvent>(msg.get_payload_bytes()) {
-                    Ok(e) => {
-                        event1.broadcast(e)
-                    }
+                    Ok(e) => event1.broadcast(e),
                     Err(e) => {
                         warn!("{}", e)
                     }
@@ -189,10 +181,7 @@ pub async fn run(config_path: String, env_prefix: String) {
             }
         }
     });
-    let state = AppState {
-        db,
-        redis: redis_pool.clone()
-    };
+    let state = AppState { db, redis: redis_pool.clone() };
     let products = SnapProductInfoEntity::find().all(&state.db).await.unwrap();
 
     GLOBAL_PRODUCT_NAME.replace(products);
@@ -202,9 +191,10 @@ pub async fn run(config_path: String, env_prefix: String) {
         .nest("/api/v1", restful::router())
         .split_for_parts();
     let router = if config.api.openapi {
+        router.merge(Scalar::with_url("/api/scalar", api))
+    } else {
         router
-            .merge(Scalar::with_url("/api/scalar", api))
-    } else { router };
+    };
     let app = router
         .nest("/assets", fs)
         .layer(Extension(redis_pool))
@@ -214,16 +204,23 @@ pub async fn run(config_path: String, env_prefix: String) {
     let app = if config.api.tracing {
         let trace = TraceLayer::new_for_http();
         app.layer(trace)
-    } else { app };
+    } else {
+        app
+    };
 
     let app = if config.api.cors {
         app.layer(
             CorsLayer::new()
                 .allow_origin("*".parse::<HeaderValue>().unwrap())
                 .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-                .allow_headers(["Authorization".parse::<HeaderName>().unwrap(), "*".parse::<HeaderName>().unwrap()])
+                .allow_headers([
+                    "Authorization".parse::<HeaderName>().unwrap(),
+                    "*".parse::<HeaderName>().unwrap(),
+                ]),
         )
-    } else { app };
+    } else {
+        app
+    };
 
     let url = {
         let api_host = config.api.host.clone();
@@ -238,11 +235,10 @@ pub async fn run(config_path: String, env_prefix: String) {
 }
 
 async fn accept_language(request: Request<axum::body::Body>, next: Next) -> Response {
-    let lang = request.headers()
+    let lang = request
+        .headers()
         .get(http::header::ACCEPT_LANGUAGE)
         .and_then(|header| header.to_str().ok());
     let lang = UserLang::form_str(lang);
     run_with_lang(lang, next.run(request)).await
 }
-
-

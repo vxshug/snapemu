@@ -16,7 +16,6 @@ pub use key::last_device_data_key;
 pub use client_id::ClientId;
 pub use id::Id;
 
-
 #[macro_export]
 macro_rules! sea_string_type {
     ($ident:ident) => {
@@ -43,7 +42,7 @@ macro_rules! sea_string_type {
                 v: sea_orm::Value,
             ) -> std::result::Result<Self, sea_orm::sea_query::ValueTypeErr> {
                 use std::str::FromStr;
-                
+
                 <String as sea_orm::sea_query::ValueType>::try_from(v).and_then(|a| {
                     $ident::from_str(&a).map_err(|_| sea_orm::sea_query::ValueTypeErr)
                 })
@@ -60,4 +59,3 @@ macro_rules! sea_string_type {
         }
     };
 }
-

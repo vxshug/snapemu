@@ -3,16 +3,15 @@ use std::sync::Arc;
 
 use lorawan::default_crypto::DefaultFactory;
 
-use lorawan::parser::{DataHeader, DataPayload, DecryptedDataPayload, EncryptedDataPayload};
 use common_define::db::{Key, LoRaAddr};
+use lorawan::parser::{DataHeader, DataPayload, DecryptedDataPayload, EncryptedDataPayload};
 
-use crate::{DeviceResult, DeviceError};
 use crate::man::data::DataError;
-
+use crate::{DeviceError, DeviceResult};
 
 #[derive(Debug)]
 pub(crate) struct LoRaPayload {
-    inner: Arc<EncryptedDataPayload<Vec<u8>, DefaultFactory>>
+    inner: Arc<EncryptedDataPayload<Vec<u8>, DefaultFactory>>,
 }
 
 impl Deref for LoRaPayload {
@@ -36,7 +35,7 @@ impl LoRaPayload {
         let mut buf = [0; 4];
         let dev = self.inner.fhdr().dev_addr();
         buf.copy_from_slice(dev.as_ref());
-        
+
         buf.into()
     }
 
@@ -56,8 +55,6 @@ impl LoRaPayload {
 
 impl Clone for LoRaPayload {
     fn clone(&self) -> Self {
-        Self {
-            inner: Arc::clone(&self.inner)
-        }
+        Self { inner: Arc::clone(&self.inner) }
     }
 }

@@ -47,9 +47,6 @@ async fn log(
         }
     });
     let mut response = Sse::new(s).keep_alive(KeepAlive::default()).into_response();
-    response
-        .headers_mut()
-        .insert("X-Accel-Buffering", "no".parse().unwrap()); // nginx
+    response.headers_mut().insert("X-Accel-Buffering", "no".parse().unwrap()); // nginx
     Ok(response)
 }
-

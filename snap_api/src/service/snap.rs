@@ -1,13 +1,17 @@
-use derive_new::new;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
-use serde::Deserialize;
-use tracing::instrument;
-use common_define::db::{Eui, Key, SnapDeviceActiveModel, SnapDeviceColumn, SnapDeviceEntity, SnapDeviceModel};
-use common_define::Id;
-use common_define::product::{DeviceType, ProductType};
-use crate::{get_lang, tt, CurrentUser};
 use crate::error::{ApiError, ApiResult};
 use crate::service::device::DeviceService;
+use crate::{get_lang, tt, CurrentUser};
+use common_define::db::{
+    Eui, Key, SnapDeviceActiveModel, SnapDeviceColumn, SnapDeviceEntity, SnapDeviceModel,
+};
+use common_define::product::{DeviceType, ProductType};
+use common_define::Id;
+use derive_new::new;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter,
+};
+use serde::Deserialize;
+use tracing::instrument;
 
 pub(crate) struct SnapDeviceService;
 
@@ -16,25 +20,31 @@ pub(crate) struct ReqSnap {
     name: String,
     description: String,
     eui: Eui,
-    join_parameter: SnapJoinParameter
+    join_parameter: SnapJoinParameter,
 }
 
 #[derive(Deserialize)]
 pub(crate) struct SnapJoinParameter {
-    key: String
+    key: String,
 }
 
 impl SnapDeviceService {
     #[instrument(skip_all)]
-    pub(crate) async fn create<C: ConnectionTrait, R: redis::aio::ConnectionLike>(req: ReqSnap, user: &CurrentUser, redis: &mut R, conn: &C) -> ApiResult<SnapDeviceModel> {
+    pub(crate) async fn create<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
+        req: ReqSnap,
+        user: &CurrentUser,
+        redis: &mut R,
+        conn: &C,
+    ) -> ApiResult<SnapDeviceModel> {
         let device = DeviceService::register_device(
             user,
             req.eui,
             req.name.as_str(),
             req.description.as_str(),
             DeviceType::Snap,
-            conn
-        ).await?;
+            conn,
+        )
+        .await?;
         let key = Key::try_from(req.join_parameter.key.as_str())?;
         let snap = SnapDeviceActiveModel {
             id: Default::default(),
@@ -47,12 +57,24 @@ impl SnapDeviceService {
         };
         let snap = snap.insert(conn).await?;
 
-        let info = device_info::snap::SnapDeviceInfo::new(device.id, key, None, 0, None, device.script, None);
+        let info = device_info::snap::SnapDeviceInfo::new(
+            device.id,
+            key,
+            None,
+            0,
+            None,
+            device.script,
+            None,
+        );
         info.register(snap.eui, redis).await?;
         Ok(snap)
     }
 
-    pub(crate) async fn delete<C: ConnectionTrait, R: redis::aio::ConnectionLike>(device: Id, redis: &mut R, conn: &C) -> ApiResult {
+    pub(crate) async fn delete<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
+        device: Id,
+        redis: &mut R,
+        conn: &C,
+    ) -> ApiResult {
         let model = SnapDeviceEntity::find()
             .filter(SnapDeviceColumn::DeviceId.eq(device))
             .one(conn)
@@ -64,19 +86,25 @@ impl SnapDeviceService {
             None => {
                 return Err(crate::error::ApiError::Device {
                     device_id: device,
-                    msg: tt!("messages.device.snap.eui_missing")
+                    msg: tt!("messages.device.snap.eui_missing"),
                 })
             }
         }
         Ok(())
     }
-    
-    pub(crate) async fn get_device<C: ConnectionTrait>(device_id: Id, conn: &C) -> ApiResult<SnapDeviceModel> {
+
+    pub(crate) async fn get_device<C: ConnectionTrait>(
+        device_id: Id,
+        conn: &C,
+    ) -> ApiResult<SnapDeviceModel> {
         SnapDeviceEntity::find()
             .filter(SnapDeviceColumn::DeviceId.eq(device_id))
             .one(conn)
             .await?
-            .ok_or(ApiError::Device{ device_id, msg: tt!("messages.device.common.device_missing", device_id=device_id) })
+            .ok_or(ApiError::Device {
+                device_id,
+                msg: tt!("messages.device.common.device_missing", device_id = device_id),
+            })
     }
 
     #[instrument(skip(conn))]
@@ -99,8 +127,6 @@ impl SnapDeviceService {
         format!("data:last:{}:{}", lang, device)
     }
 
-
-    
     // pub(crate) async fn query_last(
     //     device: &[Vec<>],
     //     script_id: Option<Id>,
@@ -117,7 +143,7 @@ impl SnapDeviceService {
     //             return Ok(data)
     //         }
     //     }
-    // 
+    //
     //     let data: Option<DeviceData> = DBController::query(
     //         sqlx::query_as(DeviceData::SELECT_ONE_BY_DEVICE_ID)
     //             .bind(device)
@@ -161,7 +187,7 @@ impl SnapDeviceService {
     //                     let map = DecodeService::query_map(&[id], conn).await?;
     //                     for (index, d) in data.data.0.into_iter().enumerate() {
     //                         if let Some(map) = map.get(index) {
-    // 
+    //
     //                             let data = DataDeviceOneResponse {
     //                                 name: map.d_name.to_string(),
     //                                 data_id: d.i,
@@ -176,14 +202,14 @@ impl SnapDeviceService {
     //                     };
     //                 }
     //             }
-    // 
+    //
     //             resp.sort_by(|pre, cur| pre.data_id.cmp(&cur.data_id));
     //             let resp = DataDeviceOneResponseWrap {
     //                 counts: resp.len() as i64,
     //                 data: resp,
     //                 update: Time::now(),
     //             };
-    // 
+    //
     //             redis_conn.set(&key, &resp).await?;
     //             Ok(resp)
     //         }

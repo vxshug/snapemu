@@ -1,10 +1,9 @@
-use std::sync::Arc;
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use tracing::info;
 use snap_config::SnapConfig;
-
+use std::sync::Arc;
+use tracing::info;
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
@@ -16,7 +15,7 @@ pub struct AppConfig {
     #[serde(default)]
     pub concat_email: Option<String>,
     pub api: ApiConfig,
-    pub device_data_timeout_day: Option<u32>
+    pub device_data_timeout_day: Option<u32>,
 }
 
 impl Default for AppConfig {
@@ -62,8 +61,8 @@ pub struct EmailConfig {
     pub user: String,
     pub password: String,
     pub sender: String,
-    #[serde(default="_default_email_port")]
-    pub port: u32
+    #[serde(default = "_default_email_port")]
+    pub port: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -103,9 +102,9 @@ pub struct ApiConfig {
     pub tracing: bool,
     #[serde(default)]
     pub cors: bool,
-    #[serde(default="_default_host")]
+    #[serde(default = "_default_host")]
     pub host: String,
-    #[serde(default="_default_port")]
+    #[serde(default = "_default_port")]
     pub port: u16,
 }
 
@@ -117,7 +116,8 @@ fn _default_port() -> u16 {
     8080
 }
 
-static CONFIG: Lazy<ArcSwap<AppConfig>> = Lazy::new(|| { ArcSwap::new(Arc::new(AppConfig::default())) });
+static CONFIG: Lazy<ArcSwap<AppConfig>> =
+    Lazy::new(|| ArcSwap::new(Arc::new(AppConfig::default())));
 pub fn load_config() -> arc_swap::Guard<Arc<AppConfig>> {
     CONFIG.load()
 }
@@ -125,22 +125,16 @@ pub fn load_config() -> arc_swap::Guard<Arc<AppConfig>> {
 pub fn store_config(config: String, env_prefix: String) -> arc_swap::Guard<Arc<AppConfig>> {
     if !std::path::Path::new(&config).exists() {
         eprintln!("not fount config file in {}", config);
-        let config = SnapConfig::builder()
-            .env_prefix(&env_prefix)
-            .build().unwrap();
+        let config = SnapConfig::builder().env_prefix(&env_prefix).build().unwrap();
         CONFIG.store(Arc::new(config.into_local_config().unwrap()));
-        return load_config()
+        return load_config();
     }
-    let config = SnapConfig::builder()
-        .add_file(&config)
-        .env_prefix(&env_prefix)
-        .build().unwrap();
+    let config = SnapConfig::builder().add_file(&config).env_prefix(&env_prefix).build().unwrap();
     CONFIG.store(Arc::new(config.into_local_config().unwrap()));
     load_config()
-
 }
 
-pub async fn load_db() -> sea_orm::DatabaseConnection  {
+pub async fn load_db() -> sea_orm::DatabaseConnection {
     let config = load_config();
     let username = config.db.username.clone();
     let password = config.db.password.clone();
@@ -148,12 +142,7 @@ pub async fn load_db() -> sea_orm::DatabaseConnection  {
     let count = config.db.connection_count;
     let db = config.db.db.clone();
     let host = config.db.host.clone();
-    info!(
-                event = "config",
-                "type" = "db",
-                host  = host,
-                "DB Config success"
-            );
+    info!(event = "config", "type" = "db", host = host, "DB Config success");
     let url = format!("postgres://{username}:{password}@{host}:{port}/{db}");
     let mut option = sea_orm::ConnectOptions::new(url);
     option.max_connections(count as _);

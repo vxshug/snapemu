@@ -1,31 +1,43 @@
-use std::collections::HashMap;
-use derive_new::new;
-use redis::AsyncCommands;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter, Statement};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use tracing::{debug, instrument};
-use common_define::db::{DecodeScriptColumn, DecodeScriptEntity, DeviceAuthorityActiveModel, DeviceAuthorityColumn, DeviceAuthorityEntity, DeviceAuthorityModel, DeviceDataEntity, DeviceDataModel, DeviceFunctionColumn, DeviceFunctionEntity, DeviceFunctionModel, DeviceLoraGateColumn, DeviceLoraGateEntity, DeviceLoraGateModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DeviceLoraNodeModel, DevicesActiveModel, DevicesColumn, DevicesEntity, DevicesModel, Eui, Key, LoRaAddr, SnapDeviceColumn, SnapDeviceDataNameColumn, SnapDeviceDataNameEntity, SnapDeviceEntity, SnapDeviceModel};
-use common_define::{last_device_data_key, Id};
+use common_define::db::{
+    DecodeScriptColumn, DecodeScriptEntity, DeviceAuthorityActiveModel, DeviceAuthorityColumn,
+    DeviceAuthorityEntity, DeviceAuthorityModel, DeviceDataEntity, DeviceDataModel,
+    DeviceFunctionColumn, DeviceFunctionEntity, DeviceFunctionModel, DeviceLoraGateColumn,
+    DeviceLoraGateEntity, DeviceLoraGateModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity,
+    DeviceLoraNodeModel, DevicesActiveModel, DevicesColumn, DevicesEntity, DevicesModel, Eui, Key,
+    LoRaAddr, SnapDeviceColumn, SnapDeviceDataNameColumn, SnapDeviceDataNameEntity,
+    SnapDeviceEntity, SnapDeviceModel,
+};
 use common_define::decode::LastDecodeData;
 use common_define::lora::{LoRaJoinType, LoRaRegion};
 use common_define::product::{DeviceType, ProductType, ShareType};
 use common_define::time::Timestamp;
+use common_define::{last_device_data_key, Id};
+use derive_new::new;
 use device_info::lorawan::NodeInfo;
+use redis::AsyncCommands;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, IntoActiveModel,
+    ModelTrait, QueryFilter, Statement,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
+use tracing::{debug, instrument};
 
-
-use crate::error::ApiError;
-use crate::{CurrentUser, tt, AppState, get_lang, MODEL_MAP, SEA_ORMDB_BACKEND, DEVICE_DATA_RAW_SQL};
-use crate::{error::ApiResult};
 use crate::cache::DeviceCache;
+use crate::error::ApiError;
+use crate::error::ApiResult;
+use crate::{
+    get_lang, tt, AppState, CurrentUser, DEVICE_DATA_RAW_SQL, MODEL_MAP, SEA_ORMDB_BACKEND,
+};
 
-use crate::service::data::DataService;
+use super::DeviceService;
 use crate::service::data::query::{DataDeviceOneResponse, TimeDate};
+use crate::service::data::DataService;
 use crate::service::device::group::{DeviceGroupResp, DeviceGroupService};
 use crate::service::lorawan::{LoRaGateService, LoRaNodeService, ReqLoraGateway, ReqLoraNode};
 use crate::service::mqtt::{MQTTService, ReqMQTT};
 use crate::service::snap::{ReqSnap, SnapDeviceService, SnapJoinParameter};
-use super::{DeviceService};
 
 #[derive(Serialize)]
 pub(crate) struct DeviceIoResp {
@@ -33,7 +45,7 @@ pub(crate) struct DeviceIoResp {
     pub modify: bool,
     pub output: bool,
     pub value: bool,
-    pub update_time: Timestamp
+    pub update_time: Timestamp,
 }
 
 #[derive(Serialize)]
@@ -52,7 +64,7 @@ pub(crate) struct DeviceIoWrapResp {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) io: Option<Vec<DeviceIoResp>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) timer: Option<Vec<DeviceTimerResp>>
+    pub(crate) timer: Option<Vec<DeviceTimerResp>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -62,7 +74,7 @@ pub(crate) struct DeviceSource {
     pub manager: bool,
     pub modify: bool,
     pub delete: bool,
-    pub share: bool ,
+    pub share: bool,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone)]
@@ -111,7 +123,7 @@ pub(crate) enum DeviceInfo {
     MQTT(MQTTDeviceInfo),
     LoRaNode(LoRaNodeDeviceInfo),
     LoRaGate(LoRaGateDeviceInfo),
-    Snap(SnapDeviceInfo)
+    Snap(SnapDeviceInfo),
 }
 
 impl From<SnapDeviceModel> for SnapDeviceInfo {
@@ -185,7 +197,6 @@ pub(crate) struct LoRaNodeDeviceInfo {
     pub(crate) net_id: Option<i32>,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DeviceModify {
     pub name: Option<String>,
@@ -249,11 +260,7 @@ pub(crate) struct LoRaGateDeviceInfo {
 }
 impl From<DeviceLoraGateModel> for LoRaGateDeviceInfo {
     fn from(value: DeviceLoraGateModel) -> Self {
-        Self {
-            device_id: value.device_id,
-            region: value.region,
-            eui: value.eui,
-        }
+        Self { device_id: value.device_id, region: value.region, eui: value.eui }
     }
 }
 
@@ -339,7 +346,7 @@ pub(crate) struct BluetoothNode {
     #[serde(rename = "RX2FREQ")]
     pub(crate) rx2_freq: i32,
     #[serde(rename = "Firmware")]
-    pub(crate) firmware: Option<String>
+    pub(crate) firmware: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Serialize, Clone)]
@@ -351,7 +358,7 @@ impl DeviceService {
     pub(crate) async fn delete_by_user_id<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
         user_id: Id,
         redis: &mut R,
-        conn: &C
+        conn: &C,
     ) -> ApiResult {
         let mut can_delete = vec![];
         let mut lora_node = vec![];
@@ -366,28 +373,28 @@ impl DeviceService {
                     DeviceType::LoRaNode => lora_node.push(device.device.id),
                     DeviceType::LoRaGate => lora_gate.push(device.device.id),
                     DeviceType::MQTT => mqtt.push(device.device.id),
-                    DeviceType::Snap => snap.push(device.device.id)
+                    DeviceType::Snap => snap.push(device.device.id),
                 }
             }
         }
 
         // delete snap device
         Self::delete_snap(lora_node.as_slice(), conn).await?;
-        
+
         // delete lora node
         Self::delete_lora_node(lora_node.as_slice(), conn).await?;
-        
+
         // delete lora gateway
         Self::delete_lora_gateway(lora_gate.as_slice(), conn).await?;
-        
+
         // delete data
         DataService::delete_by_device_id_array(can_delete.as_slice(), conn).await?;
-        
+
         // delete device
         Self::delete_list(can_delete.as_slice(), conn).await?;
         Self::delete_device_auth(can_delete.as_slice(), conn).await?;
         DeviceCache::delete_by_user_id(user_id, redis).await?;
-        
+
         Ok(())
     }
 
@@ -399,7 +406,10 @@ impl DeviceService {
         Ok(())
     }
 
-    pub(crate) async fn delete_lora_node<C: ConnectionTrait>(device_id: &[Id], conn: &C) -> ApiResult {
+    pub(crate) async fn delete_lora_node<C: ConnectionTrait>(
+        device_id: &[Id],
+        conn: &C,
+    ) -> ApiResult {
         DeviceLoraNodeEntity::delete_many()
             .filter(DeviceLoraNodeColumn::DeviceId.is_in(device_id))
             .exec(conn)
@@ -407,7 +417,10 @@ impl DeviceService {
         Ok(())
     }
 
-    pub(crate) async fn delete_lora_gateway<C: ConnectionTrait>(device_id: &[Id], conn: &C) -> ApiResult {
+    pub(crate) async fn delete_lora_gateway<C: ConnectionTrait>(
+        device_id: &[Id],
+        conn: &C,
+    ) -> ApiResult {
         DeviceLoraGateEntity::delete_many()
             .filter(DeviceLoraGateColumn::DeviceId.is_in(device_id))
             .exec(conn)
@@ -415,25 +428,30 @@ impl DeviceService {
         Ok(())
     }
 
-    pub(crate) async fn delete_device_auth<C: ConnectionTrait>(device_id: &[Id], conn: &C) -> ApiResult {
+    pub(crate) async fn delete_device_auth<C: ConnectionTrait>(
+        device_id: &[Id],
+        conn: &C,
+    ) -> ApiResult {
         DeviceAuthorityEntity::delete_many()
             .filter(DeviceAuthorityColumn::DeviceId.is_in(device_id))
             .exec(conn)
             .await?;
         Ok(())
     }
-    
+
     pub(crate) async fn delete_list<C: ConnectionTrait>(device_id: &[Id], conn: &C) -> ApiResult {
-        DevicesEntity::delete_many()
-            .filter(DevicesColumn::Id.is_in(device_id))
-            .exec(conn)
-            .await?;
+        DevicesEntity::delete_many().filter(DevicesColumn::Id.is_in(device_id)).exec(conn).await?;
         Ok(())
     }
-    pub(crate) async fn delete<C: ConnectionTrait, R: redis::aio::ConnectionLike>(device_id: Id, user: &CurrentUser, redis: &mut R, conn: &C) -> ApiResult {
+    pub(crate) async fn delete<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
+        device_id: Id,
+        user: &CurrentUser,
+        redis: &mut R,
+        conn: &C,
+    ) -> ApiResult {
         let DeviceWithAuth { auth, device } = Self::query_one_with_auth(user.id, device_id, conn)
             .await
-            .map_err(|_| {ApiError::User("invalid device".into())})?;
+            .map_err(|_| ApiError::User("invalid device".into()))?;
         if auth.owner {
             DeviceGroupService::unlink_device_all(device.id, redis, conn).await?;
             match device.device_type {
@@ -455,51 +473,47 @@ impl DeviceService {
             device.delete(conn).await?;
             DeviceAuthorityEntity::delete_many()
                 .filter(DeviceAuthorityColumn::DeviceId.eq(device_id))
-                .exec(conn).await?;
-            return Ok(())
+                .exec(conn)
+                .await?;
+            return Ok(());
         }
         Err(ApiError::User("not owner device".into()))
     }
 
-    pub(crate) async fn valid_eui<C: ConnectionTrait>(
-        eui: Eui,
-        conn: &C
-    ) -> ApiResult {
-        let res = DevicesEntity::find()
-            .filter(DevicesColumn::Eui.eq(eui))
-            .one(conn)
-            .await?;
+    pub(crate) async fn valid_eui<C: ConnectionTrait>(eui: Eui, conn: &C) -> ApiResult {
+        let res = DevicesEntity::find().filter(DevicesColumn::Eui.eq(eui)).one(conn).await?;
 
         if res.is_some() {
-            return Err(ApiError::User(
-                tt!("messages.device.lora.dev_eui_already", eui=eui)
-            ))
+            return Err(ApiError::User(tt!("messages.device.lora.dev_eui_already", eui = eui)));
         }
         Ok(())
     }
-    
+
     #[instrument(skip_all)]
     pub(crate) async fn new_device<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
         user: &CurrentUser,
         req: DeviceCreate,
         redis: &mut R,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<Id> {
-        let eui: Eui = req.eui.ok_or(ApiError::User(
-            tt!("messages.device.common.eui_missing")
-        ))?.as_str().parse().map_err(|_| ApiError::User(
-            tt!("messages.device.common.eui_format")
-        ))?;
+        let eui: Eui = req
+            .eui
+            .ok_or(ApiError::User(tt!("messages.device.common.eui_missing")))?
+            .as_str()
+            .parse()
+            .map_err(|_| ApiError::User(tt!("messages.device.common.eui_format")))?;
         let device_id = match req.device_type {
             DeviceType::Snap => {
-                let join_parameter = req.join_parameter.ok_or(ApiError::User(
-                    tt!("messages.device.lora.join_parameter_missing")
-                ))?;
+                let join_parameter = req
+                    .join_parameter
+                    .ok_or(ApiError::User(tt!("messages.device.lora.join_parameter_missing")))?;
                 let join_parameter: SnapJoinParameter = serde_json::from_value(join_parameter)?;
-                let req = ReqSnap::new(req.name, 
-                                       req.description.unwrap_or_default(), 
-                                       eui,
-                                       join_parameter);
+                let req = ReqSnap::new(
+                    req.name,
+                    req.description.unwrap_or_default(),
+                    eui,
+                    join_parameter,
+                );
                 SnapDeviceService::create(req, user, redis, conn).await?.device_id
             }
             DeviceType::MQTT => {
@@ -507,12 +521,12 @@ impl DeviceService {
                     name: req.name,
                     description: req.description.unwrap_or_default(),
                     eui,
-                    username: req.username.ok_or(ApiError::User(
-                        tt!("messages.device.mqtt.username_missing")
-                    ))?,
-                    password: req.password.ok_or(ApiError::User(
-                        tt!("messages.device.mqtt.password_missing")
-                    ))?,
+                    username: req
+                        .username
+                        .ok_or(ApiError::User(tt!("messages.device.mqtt.username_missing")))?,
+                    password: req
+                        .password
+                        .ok_or(ApiError::User(tt!("messages.device.mqtt.password_missing")))?,
                 };
                 MQTTService::create(req_mqtt, user, conn).await?.device_id
             }
@@ -521,9 +535,9 @@ impl DeviceService {
                     name: req.name.clone(),
                     description: req.description.unwrap_or(req.name),
                     eui,
-                    region: req.region.ok_or(ApiError::User(
-                        tt!("messages.device.common.region_missing")
-                    ))?,
+                    region: req
+                        .region
+                        .ok_or(ApiError::User(tt!("messages.device.common.region_missing")))?,
                 };
                 LoRaGateService::create(req_g, user, redis, conn).await?.device_id
             }
@@ -533,15 +547,15 @@ impl DeviceService {
                     device: req.device,
                     name: req.name.clone(),
                     description: req.description.unwrap_or(req.name),
-                    region: req.region.ok_or(ApiError::User(
-                        tt!("messages.device.common.region_missing")
-                    ))?,
-                    join_type: req.join_type.ok_or(ApiError::User(
-                        tt!("messages.device.lora.join_type_missing")
-                    ))?,
-                    join_parameter: serde_json::from_value(req.join_parameter.ok_or(ApiError::User(
-                        tt!("messages.device.lora.join_parameter_missing")
-                    ))?)?,
+                    region: req
+                        .region
+                        .ok_or(ApiError::User(tt!("messages.device.common.region_missing")))?,
+                    join_type: req
+                        .join_type
+                        .ok_or(ApiError::User(tt!("messages.device.lora.join_type_missing")))?,
+                    join_parameter: serde_json::from_value(req.join_parameter.ok_or(
+                        ApiError::User(tt!("messages.device.lora.join_parameter_missing")),
+                    )?)?,
                     scan_eui: req.scan_eui,
                     blue_name: req.blue_name,
                     blue_parm: req.blue_parm,
@@ -550,8 +564,9 @@ impl DeviceService {
                 LoRaNodeService::create_node(req_g, user, redis, conn).await?
             }
         };
-        let default_group = DeviceGroupService::link_to_default_group(user.id, device_id, redis, conn).await?;
-        
+        let default_group =
+            DeviceGroupService::link_to_default_group(user.id, device_id, redis, conn).await?;
+
         for group in req.group {
             if default_group.group_id == default_group.id {
                 continue;
@@ -581,7 +596,7 @@ impl DeviceService {
         device_name: &str,
         desc: &str,
         device_type: DeviceType,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<DevicesModel> {
         let device = DevicesActiveModel {
             id: Default::default(),
@@ -602,33 +617,38 @@ impl DeviceService {
         Ok(device)
     }
 
-
     #[instrument(skip(conn, redis))]
     pub(crate) async fn query_all<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
         user_id: Id,
         redis: &mut R,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<Vec<DevicesModel>> {
-        Self::query_all_with_auth(user_id, redis, conn).await
+        Self::query_all_with_auth(user_id, redis, conn)
+            .await
             .map(|item| item.v.into_iter().map(|it| it.device).collect())
     }
     pub(crate) async fn query_all_with_auth<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
         user_id: Id,
         redis: &mut R,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<DeviceCache> {
         match DeviceCache::load_by_user_id(user_id, redis).await? {
             Some(cache) => Ok(cache),
             None => {
                 let devices = DeviceAuthorityEntity::find()
-                    .filter(DeviceAuthorityColumn::ShareId.eq(user_id).and(DeviceAuthorityColumn::ShareType.eq(ShareType::User.as_ref())))
+                    .filter(
+                        DeviceAuthorityColumn::ShareId
+                            .eq(user_id)
+                            .and(DeviceAuthorityColumn::ShareType.eq(ShareType::User.as_ref())),
+                    )
                     .find_also_related(DevicesEntity)
                     .all(conn)
                     .await?;
-                let devices = devices.into_iter()
+                let devices = devices
+                    .into_iter()
                     .filter_map(|item| match item.1 {
-                        Some(device) => { Some(DeviceWithAuth { device, auth: item.0 }) }
-                        None => None
+                        Some(device) => Some(DeviceWithAuth { device, auth: item.0 }),
+                        None => None,
                     })
                     .collect::<Vec<_>>();
                 let device_cache = DeviceCache::new(devices);
@@ -641,21 +661,24 @@ impl DeviceService {
     pub(crate) async fn query_all_with_ids<C: ConnectionTrait>(
         user_id: Id,
         devices: &[Id],
-        conn: &C
+        conn: &C,
     ) -> ApiResult<Vec<DevicesModel>> {
         let devices = DeviceAuthorityEntity::find()
-            .filter(DeviceAuthorityColumn::ShareId.eq(user_id).and(DeviceAuthorityColumn::ShareType.eq(ShareType::User.as_ref())).and(DeviceAuthorityColumn::DeviceId.is_in(devices)))
+            .filter(
+                DeviceAuthorityColumn::ShareId
+                    .eq(user_id)
+                    .and(DeviceAuthorityColumn::ShareType.eq(ShareType::User.as_ref()))
+                    .and(DeviceAuthorityColumn::DeviceId.is_in(devices)),
+            )
             .find_also_related(DevicesEntity)
             .all(conn)
             .await?;
-        let devices = devices.into_iter()
-            .flat_map(|item| item.1)
-            .collect::<Vec<_>>();
+        let devices = devices.into_iter().flat_map(|item| item.1).collect::<Vec<_>>();
         Ok(devices)
     }
     pub(crate) async fn query_device_online_with_ids<C: ConnectionTrait>(
         devices: &[Id],
-        conn: &C
+        conn: &C,
     ) -> ApiResult<HashMap<Id, u64>> {
         if devices.is_empty() {
             return Ok(HashMap::new());
@@ -676,7 +699,7 @@ impl DeviceService {
                 let now_time = data.create_time.timestamp_millis();
                 if pre_id == data.device_id {
                     h.insert(pre_id, pre_time - now_time);
-                    continue
+                    continue;
                 }
             }
             predata = Some((data.device_id, data.create_time.timestamp_millis()))
@@ -694,12 +717,17 @@ impl DeviceService {
 
         let mut conn = state.redis.get().await?;
         let mut map = HashMap::new();
-        let ids = devices.iter().filter(|it| {
-            it.device_type == DeviceType::MQTT || it.device_type == DeviceType::LoRaNode || it.device_type == DeviceType::Snap
-        }).map(|item| (item.id,  last_device_data_key(item.id), item.script, item.data_id))
+        let ids = devices
+            .iter()
+            .filter(|it| {
+                it.device_type == DeviceType::MQTT
+                    || it.device_type == DeviceType::LoRaNode
+                    || it.device_type == DeviceType::Snap
+            })
+            .map(|item| (item.id, last_device_data_key(item.id), item.script, item.data_id))
             .collect::<Vec<_>>();
         if ids.is_empty() {
-           return Ok(map);
+            return Ok(map);
         }
         let script_ids = ids.iter().filter_map(|id| id.2).collect::<Vec<_>>();
         let data_ids = ids.iter().filter_map(|id| id.3).collect::<Vec<_>>();
@@ -734,7 +762,9 @@ impl DeviceService {
                 match script {
                     Some(script_id) => {
                         if let Some(sc) = script_map.get(&script_id) {
-                            let map = last_data.v.into_iter()
+                            let map = last_data
+                                .v
+                                .into_iter()
                                 .map(|it| (it.i, it.v))
                                 .collect::<HashMap<_, _>>();
                             for m in sc.map.iter() {
@@ -743,56 +773,50 @@ impl DeviceService {
                                         name: m.name.to_string(),
                                         data_id: m.id,
                                         unit: m.unit.to_string(),
-                                        data: TimeDate {
-                                            time: last_data.t,
-                                            data: value.clone()
-                                        }
+                                        data: TimeDate { time: last_data.t, data: value.clone() },
                                     };
                                     resp.push(data)
                                 }
                             }
                         }
                     }
-                    None => {
-                        match data_id {
-                            Some(data_id) => {
-                                if let Some(sc) = data_id_map.get(&data_id) {
-                                    let map = last_data.v.into_iter()
-                                        .map(|it| (it.i, it.v))
-                                        .collect::<HashMap<_, _>>();
-                                    for m in sc.map.0.iter() {
-                                        if let Some(value) = map.get(&m.id) {
-                                            let data = DataDeviceOneResponse {
-                                                name: m.name.to_string(),
-                                                data_id: m.id,
-                                                unit: m.unit.to_string(),
-                                                data: TimeDate {
-                                                    time: last_data.t,
-                                                    data: value.clone()
-                                                }
-                                            };
-                                            resp.push(data)
-                                        }
+                    None => match data_id {
+                        Some(data_id) => {
+                            if let Some(sc) = data_id_map.get(&data_id) {
+                                let map = last_data
+                                    .v
+                                    .into_iter()
+                                    .map(|it| (it.i, it.v))
+                                    .collect::<HashMap<_, _>>();
+                                for m in sc.map.0.iter() {
+                                    if let Some(value) = map.get(&m.id) {
+                                        let data = DataDeviceOneResponse {
+                                            name: m.name.to_string(),
+                                            data_id: m.id,
+                                            unit: m.unit.to_string(),
+                                            data: TimeDate {
+                                                time: last_data.t,
+                                                data: value.clone(),
+                                            },
+                                        };
+                                        resp.push(data)
                                     }
                                 }
                             }
-                            None => {
-                                for d in last_data.v {
-                                    let data_name = MODEL_MAP.get_entry(d.i, lang);
-                                    let data = DataDeviceOneResponse {
-                                        name: data_name.name.to_string(),
-                                        data_id: d.i,
-                                        unit: data_name.unit.to_string(),
-                                        data: TimeDate {
-                                            time: last_data.t,
-                                            data: d.v
-                                        }
-                                    };
-                                    resp.push(data)
+                        }
+                        None => {
+                            for d in last_data.v {
+                                let data_name = MODEL_MAP.get_entry(d.i, lang);
+                                let data = DataDeviceOneResponse {
+                                    name: data_name.name.to_string(),
+                                    data_id: d.i,
+                                    unit: data_name.unit.to_string(),
+                                    data: TimeDate { time: last_data.t, data: d.v },
                                 };
+                                resp.push(data)
                             }
                         }
-                    }
+                    },
                 }
             }
             map.insert(device_id, resp);
@@ -803,7 +827,7 @@ impl DeviceService {
     #[instrument(skip(conn))]
     pub(crate) async fn query_all_device_functions<C: ConnectionTrait>(
         device_id: Vec<Id>,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<Vec<DeviceFunctionModel>> {
         if device_id.is_empty() {
             return Ok(Vec::new());
@@ -821,18 +845,25 @@ impl DeviceService {
         conn: &C,
     ) -> ApiResult<DeviceWithAuth> {
         let (auth, device) = DeviceAuthorityEntity::find()
-            .filter(DeviceAuthorityColumn::ShareId.eq(user_id).and(DeviceAuthorityColumn::ShareType.eq(ShareType::User.as_ref())).and(DevicesColumn::Id.eq(device_id)))
+            .filter(
+                DeviceAuthorityColumn::ShareId
+                    .eq(user_id)
+                    .and(DeviceAuthorityColumn::ShareType.eq(ShareType::User.as_ref()))
+                    .and(DevicesColumn::Id.eq(device_id)),
+            )
             .find_also_related(DevicesEntity)
             .one(conn)
             .await?
-            .ok_or_else(|| {
-                ApiError::Device{ device_id, msg: tt!("messages.device.common.device_missing", device_id=device_id) }
+            .ok_or_else(|| ApiError::Device {
+                device_id,
+                msg: tt!("messages.device.common.device_missing", device_id = device_id),
             })?;
         match device {
-            Some(device) => { Ok(DeviceWithAuth { device, auth }) }
-            None => {
-                Err(ApiError::Device { device_id, msg: tt!("messages.device.common.device_missing", device_id=device_id) })
-            }
+            Some(device) => Ok(DeviceWithAuth { device, auth }),
+            None => Err(ApiError::Device {
+                device_id,
+                msg: tt!("messages.device.common.device_missing", device_id = device_id),
+            }),
         }
     }
     pub(crate) async fn query_one<C: ConnectionTrait>(
@@ -840,23 +871,14 @@ impl DeviceService {
         device_id: Id,
         conn: &C,
     ) -> ApiResult<DevicesModel> {
-        Self::query_one_with_auth(user_id, device_id, conn).await
-            .map(|e|e.device)
+        Self::query_one_with_auth(user_id, device_id, conn).await.map(|e| e.device)
     }
 
-    pub(crate) async fn query_io_all<C: ConnectionTrait>(
-        device: Id,
-        conn: &C
-    ) -> ApiResult {
-
+    pub(crate) async fn query_io_all<C: ConnectionTrait>(device: Id, conn: &C) -> ApiResult {
         Ok(())
     }
 
-    pub(crate) async fn query_timer_all<C: ConnectionTrait>(
-        device: Id,
-        conn: &C
-    ) -> ApiResult {
-
+    pub(crate) async fn query_timer_all<C: ConnectionTrait>(device: Id, conn: &C) -> ApiResult {
         Ok(())
     }
 
@@ -864,25 +886,30 @@ impl DeviceService {
         device_with_auth: DeviceWithAuth,
         info: DeviceModify,
         redis: &mut R,
-        conn: &C
+        conn: &C,
     ) -> ApiResult {
-
         let mut device_active = device_with_auth.device.clone().into_active_model();
         if let Some(product_id) = info.product_id {
-            if Some(product_id) != device_with_auth.device.product_id { 
+            if Some(product_id) != device_with_auth.device.product_id {
                 device_active.product_id = ActiveValue::Set(Some(product_id));
             }
         }
         if let Some(script_id) = info.script {
-            if device_with_auth.device.device_type == DeviceType::LoRaNode && device_with_auth.device.script != info.script {
-                let script = DecodeScriptEntity::find_by_id(script_id)
-                    .one(conn)
-                    .await?;
+            if device_with_auth.device.device_type == DeviceType::LoRaNode
+                && device_with_auth.device.script != info.script
+            {
+                let script = DecodeScriptEntity::find_by_id(script_id).one(conn).await?;
                 if script.is_none() {
                     return Err(ApiError::User("invalid script".into()));
                 }
                 device_active.script = ActiveValue::Set(script_id.into());
-                NodeInfo::update_by_eui(device_with_auth.device.eui, NodeInfo::script(), script_id, redis).await?;
+                NodeInfo::update_by_eui(
+                    device_with_auth.device.eui,
+                    NodeInfo::script(),
+                    script_id,
+                    redis,
+                )
+                .await?;
             }
         }
         if let Some(_script) = info.reset_script {
@@ -891,7 +918,9 @@ impl DeviceService {
         }
         if device_with_auth.device.device_type == DeviceType::LoRaNode {
             let eui = device_with_auth.device.eui;
-            let node = device_with_auth.device.find_related(DeviceLoraNodeEntity)
+            let node = device_with_auth
+                .device
+                .find_related(DeviceLoraNodeEntity)
                 .one(conn)
                 .await?
                 .ok_or_else(|| ApiError::User("invalid device".into()))?;

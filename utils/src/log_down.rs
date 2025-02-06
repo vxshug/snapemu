@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 pub async fn log_down(eui: &str, token: &str, component: &str, tx: &str) {
-    
     let mut m = HashMap::new();
     m.insert("eui", serde_json::Value::String(eui.to_string()));
     m.insert("token", serde_json::Value::String(token.to_string()));
@@ -16,7 +15,7 @@ pub async fn log_down(eui: &str, token: &str, component: &str, tx: &str) {
             m.insert("json", json);
         }
     }
-    
+
     match std::env::var("DOWN_LOG").ok() {
         None => {
             println!("Not Found DOWN_LOG")
@@ -27,12 +26,9 @@ pub async fn log_down(eui: &str, token: &str, component: &str, tx: &str) {
             }
         }
     }
-    
 }
 
 async fn _request(body: HashMap<&str, serde_json::Value>, url: &str) -> Result<(), reqwest::Error> {
-    reqwest::Client::builder().build()?.post(url)
-        .json(&body)
-        .send().await?;
+    reqwest::Client::builder().build()?.post(url).json(&body).send().await?;
     Ok(())
 }

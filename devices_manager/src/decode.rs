@@ -1,23 +1,21 @@
-
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use crate::man::data::{DataError, ValueType};
+use common_define::db::DbDecodeData;
 use derive_new::new;
 use rquickjs::CatchResultExt;
-use common_define::db::DbDecodeData;
-use crate::man::data::{DataError, ValueType};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 
 fn check_data_length(bytes: &[u8]) -> Result<(), DataError> {
     let mut check_len = 0;
     let mut prefix = 0;
     let len = bytes.len();
     loop {
-        let sensor_len = *bytes
-            .get(check_len+2)
-            .ok_or(format!("data length error: {:?}", bytes))?;
+        let sensor_len =
+            *bytes.get(check_len + 2).ok_or(format!("data length error: {:?}", bytes))?;
         check_len += sensor_len as usize + 3;
-        if check_len == len { 
-            break
+        if check_len == len {
+            break;
         }
     }
     check_len = 0;
@@ -25,14 +23,12 @@ fn check_data_length(bytes: &[u8]) -> Result<(), DataError> {
     loop {
         check_len += 2;
         prefix += 2;
-        let sensor_len = *bytes
-            .get(check_len)
-            .ok_or(format!("data length error: {:?}", bytes))?;
+        let sensor_len = *bytes.get(check_len).ok_or(format!("data length error: {:?}", bytes))?;
         check_len += sensor_len as usize + 1;
         prefix += 1;
-        
+
         if check_len > len || check_len <= prefix {
-            return Err(DataError::from("length error"))
+            return Err(DataError::from("length error"));
         } else {
             let mut s = 0;
             loop {
@@ -41,7 +37,8 @@ fn check_data_length(bytes: &[u8]) -> Result<(), DataError> {
                 let pk_type: ValueType = pk_type.try_into()?;
                 match pk_type {
                     ValueType::Array => {
-                        type_len = *bytes.get(prefix+1).ok_or(DataError::from("length error"))? + 1;
+                        type_len =
+                            *bytes.get(prefix + 1).ok_or(DataError::from("length error"))? + 1;
                     }
                     ValueType::F64 => {
                         type_len = 8;
@@ -74,14 +71,14 @@ fn check_data_length(bytes: &[u8]) -> Result<(), DataError> {
                 s += type_len + 1;
                 prefix += type_len as usize + 1;
                 if sensor_len == s {
-                    break
+                    break;
                 }
             }
         }
         if len == check_len {
-            break
+            break;
         }
-    };
+    }
     Ok(())
 }
 
@@ -99,12 +96,11 @@ pub(crate) struct DeviceIO {
     pub(crate) value: bool,
 }
 
-
 #[derive(Default, Debug)]
 pub struct DecodeDataDecoded {
     pub data: Vec<common_define::decode::DecodeData>,
-    pub io : Vec<DeviceIO>,
-    pub status: Option<DeviceBattery>
+    pub io: Vec<DeviceIO>,
+    pub status: Option<DeviceBattery>,
 }
 
 pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataError> {
@@ -114,21 +110,21 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
     let mut r = DecodeDataDecoded::default();
     loop {
         if current_len == len {
-            break
+            break;
         }
         current_len += 2; // sensor id
         if current_len >= len {
-            return Err(DataError::from("sensor id not found".to_string()))
+            return Err(DataError::from("sensor id not found".to_string()));
         }
         let sensor_id = (bytes[current_len - 2] as u32) | ((bytes[current_len - 1] as u32) << 8);
         current_len += 1;
         if current_len >= len {
-            return Err(DataError::from("data length not found".to_string()))
+            return Err(DataError::from("data length not found".to_string()));
         }
         let data_len = bytes[current_len - 1] as usize;
         current_len += data_len;
         if current_len > len {
-            return Err(DataError::from("data length so mush".to_string()))
+            return Err(DataError::from("data length so mush".to_string()));
         }
         let mut parse_data_len = 0;
         let bytes = &bytes[(current_len - data_len)..current_len];
@@ -151,8 +147,8 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
                         let s = DeviceIO {
                             pin: i as i16,
                             modify: modify & (1 << i) != 0,
-                            mode: mode &( 1 << i) != 0,
-                            value: status &( 1 << i) != 0
+                            mode: mode & (1 << i) != 0,
+                            value: status & (1 << i) != 0,
                         };
                         r.io.push(s);
                     }
@@ -173,15 +169,18 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
             let data = match pk_type {
                 ValueType::Array => {
                     if parse_data_len > data_len {
-                        return Err(DataError::from(format!("not found array length: {:?}", bytes)));
+                        return Err(DataError::from(format!(
+                            "not found array length: {:?}",
+                            bytes
+                        )));
                     }
                     let arr_len = bytes[parse_data_len] as usize;
                     parse_data_len += 1;
-                    if parse_data_len+ arr_len > data_len {
+                    if parse_data_len + arr_len > data_len {
                         return Err(DataError::from(format!("data length error: {:?}", bytes)));
                     }
                     let mut v = Vec::with_capacity(arr_len);
-                    for item in &bytes[parse_data_len..parse_data_len+arr_len] {
+                    for item in &bytes[parse_data_len..parse_data_len + arr_len] {
                         v.push(*item);
                     }
                     parse_data_len += arr_len;
@@ -269,21 +268,18 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
             let data_id = sensor_id << 4 | pk_id;
             r.data.push(common_define::decode::DecodeData::new(data_id, data));
         }
-
     }
     Ok(r)
 }
 
 #[derive(Debug)]
 pub struct RawData {
-    bytes: Vec<u8>
+    bytes: Vec<u8>,
 }
 
 impl RawData {
     pub fn new<B: Into<Vec<u8>>>(bytes: B) -> Self {
-        Self {
-            bytes: bytes.into()
-        }
+        Self { bytes: bytes.into() }
     }
 }
 
@@ -291,26 +287,30 @@ const JS_FUNCTION_NAME: &str = "decodeUplink";
 
 #[derive(Debug, serde::Serialize)]
 pub struct DecodeData {
-    pub data: Vec<DecodeDataItem>
+    pub data: Vec<DecodeDataItem>,
 }
 
 impl From<DecodeData> for DbDecodeData {
     fn from(value: DecodeData) -> Self {
-        Self(value.data.into_iter()
-            .map(|it| common_define::decode::DecodeData::new(it.i as u32, it.v))
-            .collect())
+        Self(
+            value
+                .data
+                .into_iter()
+                .map(|it| common_define::decode::DecodeData::new(it.i as u32, it.v))
+                .collect(),
+        )
     }
 }
 
 fn js_to_serde_value(data: &rquickjs::Value) -> Option<common_define::decode::Value> {
     if let Some(b) = data.as_bool() {
-        return Some(common_define::decode::Value::from(b))
+        return Some(common_define::decode::Value::from(b));
     };
     if let Some(b) = data.as_int() {
-        return Some(common_define::decode::Value::from(b))
+        return Some(common_define::decode::Value::from(b));
     };
     if let Some(b) = data.as_float() {
-        return Some(common_define::decode::Value::from(b))
+        return Some(common_define::decode::Value::from(b));
     };
     None
 }
@@ -318,7 +318,7 @@ fn js_to_serde_value(data: &rquickjs::Value) -> Option<common_define::decode::Va
 #[derive(Debug, serde::Serialize)]
 pub struct DecodeDataItem {
     pub v: common_define::decode::Value,
-    pub i: i32
+    pub i: i32,
 }
 impl<'js> rquickjs::FromJs<'js> for DecodeDataItem {
     fn from_js(_ctx: rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> rquickjs::Result<Self> {
@@ -334,41 +334,35 @@ impl<'js> rquickjs::FromJs<'js> for DecodeDataItem {
             to: "",
             message: Some("id most number".to_string()),
         })?;
-        Ok(Self {
-            v: data,
-            i: id
-        })
+        Ok(Self { v: data, i: id })
     }
 }
 impl<'js> rquickjs::FromJs<'js> for DecodeData {
     fn from_js(_ctx: rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> rquickjs::Result<Self> {
-        let obj = rquickjs::Object::from_value(value)
-            .map_err(|_|  rquickjs::Error::FromJs {
-                from: "",
-                to: "",
-                message: Some(format!("{} function most return a Object contains an array type named data", JS_FUNCTION_NAME)),
-            })?;
+        let obj = rquickjs::Object::from_value(value).map_err(|_| rquickjs::Error::FromJs {
+            from: "",
+            to: "",
+            message: Some(format!(
+                "{} function most return a Object contains an array type named data",
+                JS_FUNCTION_NAME
+            )),
+        })?;
         let data: Vec<DecodeDataItem> = obj.get("data")?;
-        Ok(Self {
-            data
-        })
+        Ok(Self { data })
     }
 }
 
 impl<'js> rquickjs::IntoJs<'js> for RawData {
     fn into_js(self, ctx: rquickjs::Ctx<'js>) -> rquickjs::Result<rquickjs::Value<'js>> {
         rquickjs::Object::new(ctx)
-            .and_then(|obj| {
-                obj.prop("bytes", self.bytes)
-                    .map(|_| obj)
-            }).into_js(ctx)
+            .and_then(|obj| obj.prop("bytes", self.bytes).map(|_| obj))
+            .into_js(ctx)
     }
 }
 
-
 struct JsContext {
     hand: tokio::task::JoinHandle<()>,
-    ctx: rquickjs::Context
+    ctx: rquickjs::Context,
 }
 
 impl Drop for JsContext {
@@ -384,23 +378,19 @@ struct JsManagerInner {
 }
 
 pub struct JsManager {
-    inner: Arc<JsManagerInner>
+    inner: Arc<JsManagerInner>,
 }
 
 impl Clone for JsManager {
     fn clone(&self) -> Self {
-        Self {
-            inner: Arc::clone(&self.inner)
-        }
+        Self { inner: Arc::clone(&self.inner) }
     }
 }
 
 #[derive(Debug)]
 pub enum JsDecodeError {
     Unknown(String),
-    TimeOut {
-        stack: Option<String>
-    },
+    TimeOut { stack: Option<String> },
     Return(String),
     Export(String),
 }
@@ -408,40 +398,26 @@ pub enum JsDecodeError {
 impl From<rquickjs::Error> for JsDecodeError {
     fn from(value: rquickjs::Error) -> Self {
         match value {
-            rquickjs::Error::FromJs { message, .. } => {
-                Self::Return(message.unwrap_or_default())
-            }
-            e => {
-                Self::Unknown(e.to_string())
-            }
+            rquickjs::Error::FromJs { message, .. } => Self::Return(message.unwrap_or_default()),
+            e => Self::Unknown(e.to_string()),
         }
     }
 }
 impl<'js> From<rquickjs::CaughtError<'js>> for JsDecodeError {
     fn from(value: rquickjs::CaughtError<'js>) -> Self {
         match value {
-            rquickjs::CaughtError::Error(e) => {
-                Self::from(e)
-            }
-            rquickjs::CaughtError::Exception(ex) => {
-                match ex.message() {
-                    None => {
-                        Self::Unknown(ex.to_string())
-                    }
-                    Some(s) => {
-                        if s == "interrupted" {
-                            Self::TimeOut {
-                                stack: ex.stack()
-                            }
-                        } else {
-                            Self::Unknown(s)
-                        }
+            rquickjs::CaughtError::Error(e) => Self::from(e),
+            rquickjs::CaughtError::Exception(ex) => match ex.message() {
+                None => Self::Unknown(ex.to_string()),
+                Some(s) => {
+                    if s == "interrupted" {
+                        Self::TimeOut { stack: ex.stack() }
+                    } else {
+                        Self::Unknown(s)
                     }
                 }
-            }
-            rquickjs::CaughtError::Value(v) => {
-                Self::Unknown(format!("value {:?}", v))
-            }
+            },
+            rquickjs::CaughtError::Value(v) => Self::Unknown(format!("value {:?}", v)),
         }
     }
 }
@@ -451,20 +427,9 @@ impl JsManager {
         runtime.set_memory_limit(2_000_000);
         let timeout = Arc::new(AtomicBool::new(false));
         let notify = timeout.clone();
-        runtime.set_interrupt_handler(
-            Some(
-                Box::new(move || {
-                    timeout.swap(false, Ordering::Relaxed)
-                })
-            )
-        );
-        Self {
-            inner: Arc::new(JsManagerInner {
-                runtime,
-                notify,
-                timeout: 1000
-            })
-        }
+        runtime
+            .set_interrupt_handler(Some(Box::new(move || timeout.swap(false, Ordering::Relaxed))));
+        Self { inner: Arc::new(JsManagerInner { runtime, notify, timeout: 1000 }) }
     }
 
     fn ctx(&self) -> Result<JsContext, JsDecodeError> {
@@ -491,18 +456,18 @@ impl JsManager {
         let ctx = self.ctx()?;
         ctx.ctx.with(|ctx| {
             let m = rquickjs::Module::instantiate_read_object(ctx, module).catch(ctx)?;
-            let f: rquickjs::Function = m.get(JS_FUNCTION_NAME).map_err(|_|
-                JsDecodeError::Export(format!("most export {}", JS_FUNCTION_NAME))
-            )?;
+            let f: rquickjs::Function = m
+                .get(JS_FUNCTION_NAME)
+                .map_err(|_| JsDecodeError::Export(format!("most export {}", JS_FUNCTION_NAME)))?;
             let data: DecodeData = f.call((data,)).catch(ctx)?;
             Ok(data)
         })
     }
 
-    pub fn compile(&self ,code: &str) -> Result<Vec<u8>, JsDecodeError> {
+    pub fn compile(&self, code: &str) -> Result<Vec<u8>, JsDecodeError> {
         let ctx = self.ctx()?;
         let r: Result<Vec<u8>, JsDecodeError> = ctx.ctx.with(|ctx| {
-            let b = unsafe { rquickjs::Module::unsafe_declare( ctx,"script", code) }.catch(ctx)?;
+            let b = unsafe { rquickjs::Module::unsafe_declare(ctx, "script", code) }.catch(ctx)?;
             let byte = b.write_object(false)?;
             Ok(byte)
         });
@@ -512,16 +477,19 @@ impl JsManager {
 
 #[cfg(test)]
 mod tests {
-    use common_define::Id;
     use crate::decode::{up_data_decode, JsManager, RawData};
     use crate::man::DecodeManager;
+    use common_define::Id;
 
     #[test]
     fn test_decode() {
-        let v = vec![0x0, 0x1, 0x9, 0x3, 0x1, 0x13, 0x1, 0x22, 0x1, 0x1, 0x1, 0x1, 0x0, 0x1, 0xA, 0x3, 0x1, 0x13, 0x1, 0x20, 0x4, 0x1, 0x1, 0x1, 0x1];
+        let v = vec![
+            0x0, 0x1, 0x9, 0x3, 0x1, 0x13, 0x1, 0x22, 0x1, 0x1, 0x1, 0x1, 0x0, 0x1, 0xA, 0x3, 0x1,
+            0x13, 0x1, 0x20, 0x4, 0x1, 0x1, 0x1, 0x1,
+        ];
         up_data_decode(&v).unwrap();
     }
-    
+
     #[tokio::test]
     async fn test_js_decode() {
         let rt = JsManager::new();
@@ -534,7 +502,7 @@ mod tests {
     ]
   }
 }"#;
-        let d = m.decode_with_code(Id::new(1), s, RawData::new([1,2,3])).unwrap();
+        let d = m.decode_with_code(Id::new(1), s, RawData::new([1, 2, 3])).unwrap();
         println!("{:?}", d);
     }
 }

@@ -1,11 +1,11 @@
 use crate::error::{ApiError, ApiResult};
+use crate::load::load_config;
 use lettre::message::header::ContentType;
 use lettre::message::Mailbox;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use rust_embed::RustEmbed;
 use std::str::FromStr;
 use tracing::warn;
-use crate::load::load_config;
 
 #[derive(RustEmbed)]
 #[include = "*.html"]
@@ -16,28 +16,31 @@ pub struct EmailManager {
     sender: Mailbox,
 }
 
-
 impl EmailManager {
     pub(crate) fn new() -> ApiResult<Option<Self>> {
         let config = load_config();
         if let Some(email) = config.api.email.as_ref() {
             let url = format!("smtps://{}:{}", email.server, email.port);
-            let credential = lettre::transport::smtp::authentication::Credentials::new(email.user.clone(), email.password.clone());
+            let credential = lettre::transport::smtp::authentication::Credentials::new(
+                email.user.clone(),
+                email.password.clone(),
+            );
             let mailer: AsyncSmtpTransport<Tokio1Executor> =
                 AsyncSmtpTransport::<Tokio1Executor>::from_url(url.as_str())
-                    .map_err(|e| ApiError::Server { 
+                    .map_err(|e| ApiError::Server {
                         case: "email config",
-                        msg: e.to_string().into()
+                        msg: e.to_string().into(),
                     })?
                     .credentials(credential)
                     .build();
-            let sender = Mailbox::new(Some("norplay".to_string()), lettre::address::Address::from_str(&email.user).map_err(|_e| {
-                ApiError::Server {
+            let sender = Mailbox::new(
+                Some("norplay".to_string()),
+                lettre::address::Address::from_str(&email.user).map_err(|_e| ApiError::Server {
                     case: "user email",
                     msg: "invalid email address".into(),
-                }
-            })?);
-            return Ok(Some(Self { mailer, sender }))
+                })?,
+            );
+            return Ok(Some(Self { mailer, sender }));
         }
         Ok(None)
     }
@@ -45,20 +48,14 @@ impl EmailManager {
 
 impl EmailManager {
     fn load_template(file: &str) -> ApiResult<String> {
-        let index_html = EmailTemplate::get(file)
-            .ok_or(ApiError::User("not found email template".into()))?;
+        let index_html =
+            EmailTemplate::get(file).ok_or(ApiError::User("not found email template".into()))?;
         let sign = std::str::from_utf8(index_html.data.as_ref())
             .map_err(|_| ApiError::User("parse email template error".into()))?;
         Ok(sign.to_string())
     }
 
-    async fn send(
-        &self,
-        username: &str, 
-        email: &str,
-        page: String, 
-        subject: &str
-    ) -> ApiResult {
+    async fn send(&self, username: &str, email: &str, page: String, subject: &str) -> ApiResult {
         let receiver = format!("{} <{}>", username, email)
             .parse()
             .map_err(|_| ApiError::User(format!("email format error: {}", email).into()))?;
@@ -80,25 +77,20 @@ impl EmailManager {
     }
     pub async fn sign(&self, username: &str, email: &str, call_url: &str) -> ApiResult {
         let sign = Self::load_template("sign.zh.html")?;
-        
-        let page = sign
-            .replace("useremailurl", call_url)
-            .replace("username", username);
+
+        let page = sign.replace("useremailurl", call_url).replace("username", username);
         self.send(username, email, page, "Verify Email").await
     }
 
     pub async fn valid_code(&self, username: &str, email: &str, code: &str) -> ApiResult {
         let sign = Self::load_template("valicode.html")?;
-        let page = sign
-            .replace("[Recipient Name]", username)
-            .replace("[CODE]", code);
+        let page = sign.replace("[Recipient Name]", username).replace("[CODE]", code);
         self.send(username, email, page, "Verify Email").await
     }
 
     pub async fn delete_valid_code(&self, username: &str, email: &str, code: &str) -> ApiResult {
         let sign = Self::load_template("delete.html")?;
-        let page = sign
-            .replace("[Verification Code]", code);
+        let page = sign.replace("[Verification Code]", code);
         self.send(username, email, page, "Verify Email").await
     }
     pub async fn contact(&self, username: &str, email: &str, message: &str) -> ApiResult {
@@ -108,7 +100,9 @@ impl EmailManager {
             .replace("[Email]", email)
             .replace("[Message]", message);
         let config = load_config();
-        let email = config.concat_email.clone()
+        let email = config
+            .concat_email
+            .clone()
             .ok_or_else(|| ApiError::User("no contact email configuration found".into()))?;
         self.send("Contact", &email, page, "Contact Email").await
     }

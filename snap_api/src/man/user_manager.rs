@@ -1,28 +1,26 @@
-use std::collections::HashMap;
-use reqwest::{ClientBuilder, Url};
-use serde::Deserialize;
 use crate::error::{ApiError, ApiResult};
 use crate::load::load_config;
-
+use reqwest::{ClientBuilder, Url};
+use serde::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub(crate) struct UserManager {
     client: reqwest::Client,
-    base: Url
+    base: Url,
 }
-
 
 #[derive(Deserialize, Debug)]
 pub struct UserResp {
     pub(crate) id: uuid::Uuid,
     pub(crate) username: String,
-    pub(crate) email: Option<String>
+    pub(crate) email: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct JsonResp {
     code: u32,
-    data: serde_json::Value
+    data: serde_json::Value,
 }
 
 impl UserManager {
@@ -39,30 +37,22 @@ impl UserManager {
                     msg: e.to_string().into(),
                 })?;
                 let mut headers = reqwest::header::HeaderMap::new();
-                headers.insert(reqwest::header::AUTHORIZATION, user_auth.parse().map_err(|e| ApiError::Server {
-                    case: "user_auth",
-                    msg: format!("{}", e).into(),
-                })?);
-                let client = ClientBuilder::new()
-                    .default_headers(headers)
-                    .build()?;
-                return  Ok(
-                    Some(
-                        UserManager {
-                            client,
-                            base: url,
-                        }
-                    )
-                )
+                headers.insert(
+                    reqwest::header::AUTHORIZATION,
+                    user_auth.parse().map_err(|e| ApiError::Server {
+                        case: "user_auth",
+                        msg: format!("{}", e).into(),
+                    })?,
+                );
+                let client = ClientBuilder::new().default_headers(headers).build()?;
+                return Ok(Some(UserManager { client, base: url }));
             }
         }
         Ok(None)
-
     }
 }
 
 impl UserManager {
-
     fn check_state<T: serde::de::DeserializeOwned>(rep: JsonResp) -> ApiResult<T> {
         if rep.code == 200 {
             Ok(serde_json::from_value(rep.data)?)
@@ -70,16 +60,16 @@ impl UserManager {
             Err(ApiError::User(serde_json::from_value(rep.data)?))
         }
     }
-    pub(crate) async fn password_login(&self, username: &str, password: &str) -> ApiResult<UserResp> {
+    pub(crate) async fn password_login(
+        &self,
+        username: &str,
+        password: &str,
+    ) -> ApiResult<UserResp> {
         let url = self.base.join("/api/v1/login/username").unwrap();
         let mut body = HashMap::new();
         body.insert("username", username);
         body.insert("password", password);
-        let res = self.client
-            .post(url)
-            .json(&body)
-            .send()
-            .await?;
+        let res = self.client.post(url).json(&body).send().await?;
         let s = res.json::<JsonResp>().await?;
         Self::check_state(s)
     }
@@ -88,36 +78,25 @@ impl UserManager {
         &self,
         username: &str,
         password: &str,
-        email: &str) -> ApiResult<UserResp> {
+        email: &str,
+    ) -> ApiResult<UserResp> {
         let url = self.base.join("/api/v1/signup/username").unwrap();
         let mut body = HashMap::new();
         body.insert("email", email);
         body.insert("username", username);
         body.insert("password", password);
-        let res = self.client
-            .post(url)
-            .json(&body)
-            .send()
-            .await?;
+        let res = self.client.post(url).json(&body).send().await?;
         let s = res.json::<JsonResp>().await?;
         Self::check_state(s)
     }
 
-    pub(crate) async fn active_email(
-        &self,
-        id: uuid::Uuid,
-        email: &str
-    ) -> ApiResult<UserResp> {
+    pub(crate) async fn active_email(&self, id: uuid::Uuid, email: &str) -> ApiResult<UserResp> {
         let url = self.base.join("/api/v1/active/email").unwrap();
         let mut body = HashMap::new();
         let id = id.to_string();
         body.insert("email", email);
         body.insert("id", id.as_str());
-        let res = self.client
-            .post(url)
-            .json(&body)
-            .send()
-            .await?;
+        let res = self.client.post(url).json(&body).send().await?;
         let s = res.json::<JsonResp>().await?;
         Self::check_state(s)
     }
@@ -134,27 +113,16 @@ impl UserManager {
         body.insert("old_password", old_password);
         body.insert("password", password);
         body.insert("id", id.as_str());
-        let res = self.client
-            .post(url)
-            .json(&body)
-            .send()
-            .await?;
+        let res = self.client.post(url).json(&body).send().await?;
         let s = res.json::<JsonResp>().await?;
         Self::check_state(s)
     }
 
-    pub(crate) async fn check_email(
-        &self,
-        email: &str,
-    ) -> ApiResult<Option<UserResp>> {
+    pub(crate) async fn check_email(&self, email: &str) -> ApiResult<Option<UserResp>> {
         let url = self.base.join("/api/v1/check/email").unwrap();
         let mut body = HashMap::new();
         body.insert("ident", email);
-        let res = self.client
-            .post(url)
-            .json(&body)
-            .send()
-            .await?;
+        let res = self.client.post(url).json(&body).send().await?;
         let s = res.json::<JsonResp>().await?;
         if s.code == 200 {
             Ok(serde_json::from_value(s.data)?)
@@ -173,27 +141,18 @@ impl UserManager {
         let id = id.to_string();
         body.insert("password", password);
         body.insert("id", id.as_str());
-        let res = self.client
-            .post(url)
-            .json(&body)
-            .send()
-            .await?;
+        let res = self.client.post(url).json(&body).send().await?;
         let s = res.json::<JsonResp>().await?;
         Self::check_state(s)
     }
 
-    pub(crate) async fn delete_user(
-        &self,
-        id: uuid::Uuid,
-    ) -> ApiResult<()> {
-        let url = self.base.join(&format!("/api/v1/user/{}", id)).map_err(|_| ApiError::User("invalid url".into()))?;
-        let res = self.client
-            .delete(url)
-            .send()
-            .await?;
+    pub(crate) async fn delete_user(&self, id: uuid::Uuid) -> ApiResult<()> {
+        let url = self
+            .base
+            .join(&format!("/api/v1/user/{}", id))
+            .map_err(|_| ApiError::User("invalid url".into()))?;
+        let res = self.client.delete(url).send().await?;
         let s = res.json::<JsonResp>().await?;
         Self::check_state(s)
     }
 }
-
-

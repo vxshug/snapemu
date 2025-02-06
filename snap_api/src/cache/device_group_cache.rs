@@ -1,12 +1,12 @@
+use common_define::db::DeviceGroupModel;
+use common_define::Id;
 use derive_new::new;
 use redis_macros::{FromRedisValue, ToRedisArgs};
 use serde::{Deserialize, Serialize};
-use common_define::db::DeviceGroupModel;
-use common_define::Id;
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToRedisArgs, FromRedisValue, new)]
 pub struct DeviceGroupCache {
-    pub v: Vec<DeviceGroupCacheItem>
+    pub v: Vec<DeviceGroupCacheItem>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, new)]
@@ -21,12 +21,18 @@ impl DeviceGroupCache {
         format!("cache:group:{}", id)
     }
 
-    pub async fn delete_by_user_id<C: redis::aio::ConnectionLike>(user_id: Id, r: &mut C) -> redis::RedisResult<()> {
+    pub async fn delete_by_user_id<C: redis::aio::ConnectionLike>(
+        user_id: Id,
+        r: &mut C,
+    ) -> redis::RedisResult<()> {
         let key = Self::user_group_key(user_id);
         redis::Cmd::del(key).query_async(r).await
     }
 
-    pub async fn load_default_by_user_id<C: redis::aio::ConnectionLike>(user_id: Id, r: &mut C) -> redis::RedisResult<Option<DeviceGroupCacheItem>> {
+    pub async fn load_default_by_user_id<C: redis::aio::ConnectionLike>(
+        user_id: Id,
+        r: &mut C,
+    ) -> redis::RedisResult<Option<DeviceGroupCacheItem>> {
         let caches = Self::load_by_user_id(user_id, r).await?;
         match caches {
             Some(caches) => {
@@ -35,16 +41,23 @@ impl DeviceGroupCache {
                         return Ok(Some(cache));
                     }
                 }
-            },
-            None => return Ok(None)
+            }
+            None => return Ok(None),
         }
         Ok(None)
     }
-    pub async fn save_by_user_id<C: redis::aio::ConnectionLike>(groups: Self, user_id: Id, r: &mut C) -> redis::RedisResult<()> {
+    pub async fn save_by_user_id<C: redis::aio::ConnectionLike>(
+        groups: Self,
+        user_id: Id,
+        r: &mut C,
+    ) -> redis::RedisResult<()> {
         let key = Self::user_group_key(user_id);
         redis::Cmd::set(key, groups).query_async(r).await
     }
-    pub async fn load_by_user_id<C: redis::aio::ConnectionLike>(user_id: Id, r: &mut C) -> redis::RedisResult<Option<Self>> {
+    pub async fn load_by_user_id<C: redis::aio::ConnectionLike>(
+        user_id: Id,
+        r: &mut C,
+    ) -> redis::RedisResult<Option<Self>> {
         let key = Self::user_group_key(user_id);
         redis::Cmd::get(key).query_async(r).await
     }

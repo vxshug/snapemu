@@ -1,7 +1,7 @@
 use crate::error::{ApiError, ApiResult};
+use crate::tt;
 use base64::Engine;
 use tracing::warn;
-use crate::tt;
 
 pub(crate) struct Base64;
 const PASSWORD_TABLE: &[u8; 64] =
@@ -17,12 +17,10 @@ impl Base64 {
     }
     pub(crate) fn standard_decode<S: AsRef<[u8]>>(src: S) -> ApiResult<Vec<u8>> {
         let src = src.as_ref();
-        base64::engine::general_purpose::STANDARD
-            .decode(src)
-            .map_err(|e| {
-                warn!("{}", e);
-                ApiError::User(tt!("messages.user.util.base64"))
-            })
+        base64::engine::general_purpose::STANDARD.decode(src).map_err(|e| {
+            warn!("{}", e);
+            ApiError::User(tt!("messages.user.util.base64"))
+        })
     }
 
     pub(crate) fn password_encode<S: AsRef<[u8]>>(source: S) -> String {

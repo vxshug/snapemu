@@ -1,11 +1,15 @@
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
-use tracing::instrument;
-use common_define::db::{DeviceMqttActiveModel, DeviceMqttColumn, DeviceMqttEntity, DeviceMqttModel, Eui};
-use common_define::Id;
-use common_define::product::DeviceType;
-use crate::{tt, CurrentUser};
 use crate::error::{ApiError, ApiResult};
 use crate::service::device::DeviceService;
+use crate::{tt, CurrentUser};
+use common_define::db::{
+    DeviceMqttActiveModel, DeviceMqttColumn, DeviceMqttEntity, DeviceMqttModel, Eui,
+};
+use common_define::product::DeviceType;
+use common_define::Id;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter,
+};
+use tracing::instrument;
 
 pub(crate) struct MQTTService;
 
@@ -20,15 +24,20 @@ pub(crate) struct ReqMQTT {
 
 impl MQTTService {
     #[instrument(skip_all)]
-    pub(crate) async fn create<C: ConnectionTrait>(req: ReqMQTT, user: &CurrentUser, conn: &C) -> ApiResult<DeviceMqttModel> {
+    pub(crate) async fn create<C: ConnectionTrait>(
+        req: ReqMQTT,
+        user: &CurrentUser,
+        conn: &C,
+    ) -> ApiResult<DeviceMqttModel> {
         let device = DeviceService::register_device(
             user,
             req.eui,
             req.name.as_str(),
             req.description.as_str(),
             DeviceType::MQTT,
-            conn
-        ).await?;
+            conn,
+        )
+        .await?;
         let mqtt = DeviceMqttActiveModel {
             id: Default::default(),
             device_id: ActiveValue::Set(device.id),
@@ -37,7 +46,7 @@ impl MQTTService {
             password: ActiveValue::Set(req.password),
         };
         let snap = mqtt.insert(conn).await?;
-        
+
         Ok(snap)
     }
 
@@ -59,6 +68,9 @@ impl MQTTService {
             .filter(DeviceMqttColumn::DeviceId.eq(device_id))
             .one(conn)
             .await?
-            .ok_or(ApiError::Device{ device_id, msg: tt!("messages.device.common.device_missing", device_id=device_id) })
+            .ok_or(ApiError::Device {
+                device_id,
+                msg: tt!("messages.device.common.device_missing", device_id = device_id),
+            })
     }
 }

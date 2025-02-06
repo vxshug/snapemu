@@ -27,11 +27,10 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         // .nest("/io", io::router())
         .nest("/log", log::router())
         .nest("/query", query::router())
-    // .nest("/lorawan", lorawan::router())
-    .nest("/product", product::router())
+        // .nest("/lorawan", lorawan::router())
+        .nest("/product", product::router())
 }
 
 #[derive(OpenApi)]
 #[openapi(paths(devices::get_all_device))]
 pub(super) struct DeviceApi;
-

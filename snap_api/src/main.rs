@@ -5,19 +5,9 @@ use clap::{Command, FromArgMatches as _, Parser, Subcommand as _};
 #[derive(Parser, Debug)]
 enum Subcommands {
     Run {
-        #[arg(
-            short,
-            long,
-            default_value = "/etc/snapemu/config.yaml",
-            env = "SNAPEMU_CONFIG"
-        )]
+        #[arg(short, long, default_value = "/etc/snapemu/config.yaml", env = "SNAPEMU_CONFIG")]
         config: String,
-        #[arg(
-            short,
-            long,
-            default_value = "SNAPEMU_API_",
-            env = "SNAPEMU_API_ENV_PREFIX"
-        )]
+        #[arg(short, long, default_value = "SNAPEMU_API_", env = "SNAPEMU_API_ENV_PREFIX")]
         env_prefix: String,
     },
 }

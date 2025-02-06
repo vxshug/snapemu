@@ -3,7 +3,10 @@ use std::net::SocketAddr;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use common_define::db::{DeviceLoraGateColumn, DeviceLoraGateEntity, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DevicesEntity, Eui, Key, LoRaAddr};
+use common_define::db::{
+    DeviceLoraGateColumn, DeviceLoraGateEntity, DeviceLoraNodeColumn, DeviceLoraNodeEntity,
+    DevicesEntity, Eui, Key, LoRaAddr,
+};
 use common_define::lora::LoRaRegion;
 use common_define::lorawan_bridge::{DownStream, GatewayToken};
 use common_define::time::Timestamp;
@@ -11,20 +14,24 @@ use device_info::lorawan::{GatewayInfo, NodeInfo};
 use lorawan::parser::DataHeader;
 use once_cell::sync::Lazy;
 use redis::AsyncCommands;
+use sea_orm::ColumnTrait;
 use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
-use sea_orm::ColumnTrait;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::Id;
 use crate::event::LoRaNodeEvent;
 use crate::man::data::DownloadData;
-use crate::protocol::lora::payload::LoRaPayload;
-use crate::{protocol::lora::{
-    self,
-    data::{JoinRespDataBuilder, RespDataBuilder, RespDataClassCBuilder},
-}, service::lorawan_node::PushData, DeviceError, DeviceResult, GLOBAL_DOWNLOAD, GLOBAL_STATE};
 use crate::man::redis_client::RedisClient;
+use crate::protocol::lora::payload::LoRaPayload;
+use crate::{
+    protocol::lora::{
+        self,
+        data::{JoinRespDataBuilder, RespDataBuilder, RespDataClassCBuilder},
+    },
+    service::lorawan_node::PushData,
+    DeviceError, DeviceResult, GLOBAL_DOWNLOAD, GLOBAL_STATE,
+};
 
 #[derive(
     derive_more::From,
@@ -34,7 +41,7 @@ use crate::man::redis_client::RedisClient;
     serde::Serialize,
     serde::Deserialize,
     redis_macros::FromRedisValue,
-    redis_macros::ToRedisArgs,
+    redis_macros::ToRedisArgs
 )]
 #[serde(transparent)]
 pub(crate) struct LoRaRegionLocal(pub LoRaRegion);
@@ -74,7 +81,7 @@ static GATEWAY_TIME: Lazy<GatewayTimeline> = Lazy::new(|| GatewayTimeline(Defaul
     redis_macros::ToRedisArgs,
     redis_macros::FromRedisValue,
     serde::Serialize,
-    serde::Deserialize,
+    serde::Deserialize
 )]
 pub(crate) struct LoRaOTAANodeInfo {
     pub(crate) app_skey: Key,
@@ -94,10 +101,7 @@ pub(crate) struct LoRaNode {
 
 impl LoRaNode {
     fn keys(dev_addr: LoRaAddr) -> (String, String) {
-        (
-            format!("lora:node:{}", dev_addr),
-            format!("lora:tasks:{}", dev_addr),
-        )
+        (format!("lora:node:{}", dev_addr), format!("lora:tasks:{}", dev_addr))
     }
     fn dev_keys(dev_addr: &str) -> String {
         format!("lora:node:{}", dev_addr)
@@ -118,11 +122,23 @@ impl LoRaNode {
         Ok(())
     }
     pub(crate) async fn update_up_count(&mut self, up_count: u32) -> DeviceResult {
-        NodeInfo::update_by_addr(self.info.dev_addr, NodeInfo::up_count(), up_count, &mut self.conn).await?;
+        NodeInfo::update_by_addr(
+            self.info.dev_addr,
+            NodeInfo::up_count(),
+            up_count,
+            &mut self.conn,
+        )
+        .await?;
         Ok(())
     }
     pub(crate) async fn update_time(&mut self) -> DeviceResult {
-        NodeInfo::update_by_addr(self.info.dev_addr, NodeInfo::active_time(), Timestamp::now(), &mut self.conn).await?;
+        NodeInfo::update_by_addr(
+            self.info.dev_addr,
+            NodeInfo::active_time(),
+            Timestamp::now(),
+            &mut self.conn,
+        )
+        .await?;
         Ok(())
     }
     pub(crate) async fn dispatch_task(&self, mut task: DownloadData) -> DeviceResult {
@@ -130,33 +146,27 @@ impl LoRaNode {
             let _ = task.up_count.insert(self.info.up_count);
             if let Some(gateway_eui) = self.info.gateway {
                 let wait = GATEWAY_TIME.get_time(gateway_eui);
-                tracing::info!(
-                    gateway = gateway_eui.to_string(),
-                    "gateway busy wait {:?}",
-                    wait
-                );
+                tracing::info!(gateway = gateway_eui.to_string(), "gateway busy wait {:?}", wait);
                 tokio::time::sleep(wait).await;
                 let gateway = LoRaGateManager::get_gate(gateway_eui).await?;
                 let info = gateway.info().await?;
                 let builder = RespDataClassCBuilder::new(&self.info, &info);
                 let re_data = builder.build_with_task(&task, rand::random())?;
                 tracing::info!(
-                        gateway = gateway_eui.to_string(),
-                        "Class C DownLink: {:02X?}",
-                        task.bytes.as_ref()
-                    );
+                    gateway = gateway_eui.to_string(),
+                    "Class C DownLink: {:02X?}",
+                    task.bytes.as_ref()
+                );
                 let counter = GLOBAL_DOWNLOAD.insert(self.info.dev_eui, task.clone());
                 let device_addr = self.info.dev_addr;
                 let dev_eui = self.info.dev_eui;
                 tokio::spawn(async move {
-                    if let Err(e) =
-                        repetition_task(task, device_addr, gateway_eui, counter).await
-                    {
+                    if let Err(e) = repetition_task(task, device_addr, gateway_eui, counter).await {
                         warn!(
-                                target: "repetition_task",
-                                device_eui = dev_eui.to_string(),
-                                "{e}"
-                            )
+                            target: "repetition_task",
+                            device_eui = dev_eui.to_string(),
+                            "{e}"
+                        )
                     }
                 });
 
@@ -178,10 +188,10 @@ impl LoRaNode {
                 let builder = RespDataClassCBuilder::new(&self.info, &info);
                 let re_data = builder.build_with_task(&task, rand::random())?;
                 tracing::info!(
-                        gateway = gateway_eui.to_string(),
-                        "Class C DownLink: {:02X?}",
-                        task.bytes.as_ref()
-                    );
+                    gateway = gateway_eui.to_string(),
+                    "Class C DownLink: {:02X?}",
+                    task.bytes.as_ref()
+                );
 
                 self.update_down_count().await?;
                 gateway.down_link(re_data).await?;
@@ -193,24 +203,18 @@ impl LoRaNode {
         GLOBAL_DOWNLOAD.insert(self.info.dev_eui, task.clone());
         Ok(())
     }
-    
-    pub(crate) async fn get_otaa_info(&mut self)
-     -> DeviceResult<Option<LoRaOTAANodeInfo>>
-     { 
-         let active_key = LoRaNode::activate_key(self.info.dev_addr);
-         let info: Option<LoRaOTAANodeInfo> =  self.conn.get(&active_key).await?;
-         if info.is_some() {
-             self.conn.del(active_key).await?;
-         }
-         Ok(info)
+
+    pub(crate) async fn get_otaa_info(&mut self) -> DeviceResult<Option<LoRaOTAANodeInfo>> {
+        let active_key = LoRaNode::activate_key(self.info.dev_addr);
+        let info: Option<LoRaOTAANodeInfo> = self.conn.get(&active_key).await?;
+        if info.is_some() {
+            self.conn.del(active_key).await?;
+        }
+        Ok(info)
     }
 
     async fn wait(&self) {
-        let delay = if self.info.rx1_delay < 2 {
-            0
-        } else {
-            self.info.rx1_delay - 1
-        };
+        let delay = if self.info.rx1_delay < 2 { 0 } else { self.info.rx1_delay - 1 };
         let wait = Duration::from_secs(delay as u64);
         info!("gateway wait: {:?}", wait);
     }
@@ -221,10 +225,7 @@ impl LoRaNode {
         header: &LoRaPayload,
     ) -> DeviceResult {
         let count = header.fhdr().fcnt() as u32;
-        info!(
-            "DownLink start, count: {}, gateway: {:?}",
-            count, self.gw.eui
-        );
+        info!("DownLink start, count: {}, gateway: {:?}", count, self.gw.eui);
         let eui = self.info.dev_eui;
         let task = GLOBAL_DOWNLOAD.pop(eui);
 
@@ -242,11 +243,8 @@ impl LoRaNode {
                         let ack = builder.build_ack(&[])?;
                         self.down_link(ack).await?;
                     } else {
-                        let down = builder.build_with_task(
-                            &resp,
-                            rand::random(),
-                            push_data.version,
-                        )?;
+                        let down =
+                            builder.build_with_task(&resp, rand::random(), push_data.version)?;
                         self.down_link(down).await?;
                     }
                     let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
@@ -258,7 +256,7 @@ impl LoRaNode {
                 debug!("DownLink ack: {}", confirm);
                 self.wait().await;
                 let response = {
-                    if confirm  {
+                    if confirm {
                         let builder = RespDataBuilder::new(&self.info, push_data);
                         let ack = builder.build_ack(&[])?;
                         Some(ack)
@@ -288,7 +286,8 @@ impl LoRaNode {
         Ok(count)
     }
     pub(crate) async fn reset_down_count(&mut self) -> DeviceResult<u32> {
-        NodeInfo::update_by_addr(self.info.dev_addr, NodeInfo::down_count(), 0, &mut self.conn).await?;
+        NodeInfo::update_by_addr(self.info.dev_addr, NodeInfo::down_count(), 0, &mut self.conn)
+            .await?;
         self.info.down_count = 0;
         Ok(0)
     }
@@ -296,13 +295,20 @@ impl LoRaNode {
     pub(crate) async fn update_gateway(&mut self) -> DeviceResult {
         if Some(self.gw.eui) != self.info.gateway {
             self.info.gateway = Some(self.gw.eui);
-            NodeInfo::update_by_addr(self.info.dev_addr, NodeInfo::gateway(), self.gw.eui, &mut self.conn).await?;
+            NodeInfo::update_by_addr(
+                self.info.dev_addr,
+                NodeInfo::gateway(),
+                self.gw.eui,
+                &mut self.conn,
+            )
+            .await?;
         }
         Ok(())
     }
 
     pub(crate) async fn update_charge(&mut self, charge: bool) -> DeviceResult {
-        NodeInfo::update_by_addr(self.info.dev_addr, NodeInfo::charge(), charge, &mut self.conn).await?;
+        NodeInfo::update_by_addr(self.info.dev_addr, NodeInfo::charge(), charge, &mut self.conn)
+            .await?;
         Ok(())
     }
 }
@@ -312,7 +318,10 @@ pub(crate) struct LoRaNodeManager;
 
 impl LoRaNodeManager {
     #[instrument(skip(gw))]
-    pub(crate) async fn get_node_with_gateway(dev_addr: LoRaAddr, gw: LoRaGate) -> DeviceResult<LoRaNode> {
+    pub(crate) async fn get_node_with_gateway(
+        dev_addr: LoRaAddr,
+        gw: LoRaGate,
+    ) -> DeviceResult<LoRaNode> {
         let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
         let info = match NodeInfo::load_by_addr(dev_addr, &mut conn).await? {
             None => {
@@ -334,35 +343,22 @@ impl LoRaNodeManager {
         };
         let key = NodeInfo::addr_key(dev_addr);
         let task_key = LoRaNode::task_key(dev_addr);
-        Ok(LoRaNode {
-            conn,
-            key,
-            info,
-            task_key,
-            gw,
-        })
+        Ok(LoRaNode { conn, key, info, task_key, gw })
     }
 
     #[instrument]
     pub(crate) async fn get_node(dev_addr: LoRaAddr) -> DeviceResult<LoRaNode> {
         let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
-        let info = NodeInfo::load_by_addr(dev_addr, &mut conn).await?
+        let info = NodeInfo::load_by_addr(dev_addr, &mut conn)
+            .await?
             .ok_or(DeviceError::device("device already delete"))?;
         let key = NodeInfo::addr_key(dev_addr);
         let task_key = LoRaNode::task_key(dev_addr);
         let gw = match info.gateway {
-            Some(gateway) => {
-                LoRaGateManager::get_gate(gateway).await?
-            }
+            Some(gateway) => LoRaGateManager::get_gate(gateway).await?,
             None => return Err(DeviceError::device("device not exists")),
         };
-        Ok(LoRaNode {
-            conn,
-            key,
-            info,
-            task_key,
-            gw,
-        })
+        Ok(LoRaNode { conn, key, info, task_key, gw })
     }
 
     pub(crate) async fn otaa_active(dev_addr: LoRaAddr) -> DeviceResult {
@@ -378,7 +374,6 @@ impl LoRaNodeManager {
         dev_nonce: u16,
         gw: LoRaGate,
     ) -> DeviceResult {
-
         let app_nonce = rand::random::<u32>() & 0xFFFFFF;
         let net_id = rand::random::<u32>() & 0xFFFFFF;
         let keys = lora::join_accept::NodeKeys::new(&info.app_key, app_nonce, net_id, dev_nonce);
@@ -387,7 +382,7 @@ impl LoRaNodeManager {
         LoRaNodeEvent::join_request(data, &info, &mut conn).await?;
         let join_builder = JoinRespDataBuilder::new(&info, data);
         let resp = join_builder.build(info.dev_addr, app_nonce, net_id, &info.app_key)?;
-        
+
         let active_key = LoRaNode::activate_key(info.dev_addr);
 
         let otaa_info = LoRaOTAANodeInfo {
@@ -422,32 +417,22 @@ impl LoRaNodeManager {
     pub(crate) async fn get_node_by_eui(eui: Eui) -> DeviceResult<Option<LoRaNode>> {
         let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
         let info = NodeInfo::load_by_eui(eui, &mut conn).await?;
-        
+
         match info {
             Some(info) => {
-                let gw = match info.gateway { 
-                    Some(gateway) => {
-                        LoRaGateManager::get_gate(gateway)
-                            .await?
-                    }
-                    None => return Err(DeviceError::device("gateway not found"))
+                let gw = match info.gateway {
+                    Some(gateway) => LoRaGateManager::get_gate(gateway).await?,
+                    None => return Err(DeviceError::device("gateway not found")),
                 };
-                
+
                 let task_key = LoRaNode::task_key(info.dev_addr);
                 let key = NodeInfo::addr_key(info.dev_addr);
-                Ok(Some(LoRaNode {
-                    conn,
-                    key,
-                    task_key,
-                    info,
-                    gw,
-                }))
+                Ok(Some(LoRaNode { conn, key, task_key, info, gw }))
             }
             None => Ok(None),
         }
     }
 }
-
 
 #[derive(Clone)]
 pub(crate) struct LoRaGate {
@@ -459,17 +444,16 @@ pub(crate) struct LoRaGate {
 }
 
 impl LoRaGate {
-    
     pub(crate) async fn info(&self) -> DeviceResult<GatewayInfo> {
         let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
-        GatewayInfo::load(self.eui, &mut conn).await?
+        GatewayInfo::load(self.eui, &mut conn)
+            .await?
             .ok_or(DeviceError::device("gateway not found"))
     }
     pub(crate) async fn tmst(&self) -> DeviceResult<u32> {
         let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
-        let (tmst, time): (u32, Timestamp) = conn
-            .hget(self.key.as_str(), (GatewayInfo::tmst(), GatewayInfo::tmst()))
-            .await?;
+        let (tmst, time): (u32, Timestamp) =
+            conn.hget(self.key.as_str(), (GatewayInfo::tmst(), GatewayInfo::tmst())).await?;
         let now = Timestamp::now().timestamp_micros();
         let time = time.timestamp_micros();
         let tmst = ((now - time) as u32) + tmst;
@@ -487,7 +471,7 @@ impl LoRaGate {
     pub(crate) async fn update_down(&mut self, down: Option<SocketAddr>) -> DeviceResult {
         let addr = down.map(|addr| addr.to_string());
         if addr == self.info.down {
-            return Ok(())
+            return Ok(());
         }
         self.down = down;
         let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
@@ -506,14 +490,11 @@ impl LoRaGate {
     }
 
     async fn down_link(&self, down: DownStream) -> DeviceResult {
-        GLOBAL_STATE.udp.down(down, self.info.version, GatewayToken::random(), self.down)
-            .await?;
+        GLOBAL_STATE.udp.down(down, self.info.version, GatewayToken::random(), self.down).await?;
         Ok(())
     }
     pub async fn pull_ack(&mut self, token: GatewayToken) -> DeviceResult {
-
-        GLOBAL_STATE.udp.pull_ack(self.info.version, token, self.eui, self.down)
-            .await?;
+        GLOBAL_STATE.udp.pull_ack(self.info.version, token, self.eui, self.down).await?;
         Ok(())
     }
     pub async fn push_ack(
@@ -548,9 +529,9 @@ impl LoRaGateManager {
                 info.register(eui, &mut conn).await?;
                 info
             }
-            Some(info) => info
+            Some(info) => info,
         };
-        
+
         let now = Timestamp::now().timestamp_micros();
         let time = info.time.timestamp_micros();
         let tmst = ((now - time) as u32).wrapping_add(info.tmst);
@@ -578,10 +559,11 @@ async fn repetition_task(
     loop {
         tokio::time::sleep(Duration::from_secs(6)).await;
         if GLOBAL_DOWNLOAD.repetition_task(device_eui, counter) {
-            let s = LoRaNodeManager::get_node(device_addr)
-                .await?;
-            let gateway = LoRaGateManager::get_gate(s.info.gateway.ok_or(DeviceError::Device("not found gateway eui".to_string()))?)
-                .await?;
+            let s = LoRaNodeManager::get_node(device_addr).await?;
+            let gateway = LoRaGateManager::get_gate(
+                s.info.gateway.ok_or(DeviceError::Device("not found gateway eui".to_string()))?,
+            )
+            .await?;
             let builder = RespDataClassCBuilder::new(&s.info, &gateway.info);
             let re_data = builder.build_with_task(&data, rand::random())?;
             gateway.down_link(re_data).await?;
@@ -590,10 +572,7 @@ async fn repetition_task(
             break;
         }
         repetition += 1;
-        tracing::info!(
-            "Class C DownLink: repetition_task timeout 6s at {}",
-            repetition
-        );
+        tracing::info!("Class C DownLink: repetition_task timeout 6s at {}", repetition);
         if repetition == 10 {
             warn!("Class C DownLink Timeout");
             GLOBAL_DOWNLOAD.commit(device_eui);

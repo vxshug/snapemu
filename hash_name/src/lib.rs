@@ -14,7 +14,7 @@ pub fn field_names_derive(input: TokenStream) -> TokenStream {
         panic!("HashNames can only be used with structs");
     };
 
-    // skip #[FieldNames(skip)] 
+    // skip #[FieldNames(skip)]
     let field_names = fields.iter().filter_map(|field| {
         if has_skip_attribute(field) {
             None
@@ -49,7 +49,8 @@ fn has_skip_attribute(field: &Field) -> bool {
                     is_skip = true;
                 }
                 Ok(())
-            }).unwrap();
+            })
+            .unwrap();
         }
     }
     is_skip

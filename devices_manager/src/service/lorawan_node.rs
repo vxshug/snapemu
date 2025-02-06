@@ -3,22 +3,27 @@ use crate::man::Id;
 use crate::protocol::lora;
 use crate::protocol::lora::payload::LoRaPayload;
 use crate::{decode, DeviceError, DeviceResult, GLOBAL_DEPEND, GLOBAL_STATE};
-use common_define::db::{DbDecodeData, DeviceDataActiveModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DevicesEntity, Eui, Key, LoRaAddr};
+use common_define::db::{
+    DbDecodeData, DeviceDataActiveModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DevicesEntity,
+    Eui, Key, LoRaAddr,
+};
+use common_define::decode::LastDecodeData;
+use common_define::last_device_data_key;
 use common_define::lora::LoRaJoinType;
 use common_define::lorawan_bridge::{GatewayToken, RXPK};
 use common_define::time::Timestamp;
-use common_define::last_device_data_key;
+use device_info::lorawan::NodeInfo;
 use lorawan::parser::{DataHeader, DecryptedDataPayload};
 use once_cell::sync::Lazy;
-use tracing::instrument;
+use redis::AsyncCommands;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use redis::AsyncCommands;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter};
+use tracing::instrument;
 use tracing::{debug, error, info, warn};
-use common_define::decode::LastDecodeData;
-use device_info::lorawan::NodeInfo;
 use utils::base64::EncodeBase64;
 
 use crate::decode::RawData;
@@ -38,11 +43,7 @@ struct RequestCache {
 }
 
 impl RequestCache {
-    pub(crate) fn insert(
-        &self,
-        push: PushData,
-        req: RequestJoin,
-    ) -> bool {
+    pub(crate) fn insert(&self, push: PushData, req: RequestJoin) -> bool {
         let mut map = self.map.lock().unwrap();
         let m = Arc::clone(&self.map);
         let key = format!("{}:{}", req.app_eui(), req.dev_eui());
@@ -53,10 +54,7 @@ impl RequestCache {
         });
         match map.get_mut(&key) {
             None => {
-                map.insert(
-                    key,
-                    (push, req),
-                );
+                map.insert(key, (push, req));
                 true
             }
             Some(queue) => {
@@ -74,9 +72,7 @@ impl RequestCache {
     }
 }
 
-static REQUEST_QUEUE: Lazy<RequestCache> = Lazy::new(|| RequestCache {
-    map: Default::default(),
-});
+static REQUEST_QUEUE: Lazy<RequestCache> = Lazy::new(|| RequestCache { map: Default::default() });
 
 struct DataCache {
     map: Arc<Mutex<HashMap<LoRaAddr, DataItem>>>,
@@ -98,25 +94,16 @@ impl DataCache {
         });
         match map.get_mut(&addr) {
             None => {
-                map.insert(
-                    addr,
-                    DataItem {
-                        push,
-                        payload,
-                        data,
-                    },
-                );
+                map.insert(addr, DataItem { push, payload, data });
                 true
             }
             Some(queue) => {
                 let queue_count = queue.payload.fhdr().fcnt();
                 let payload_count = payload.fhdr().fcnt();
-                if queue_count < payload_count || (queue_count == payload_count && push.pk.rssi > queue.push.pk.rssi) {
-                    *queue = DataItem {
-                        push,
-                        payload,
-                        data,
-                    };
+                if queue_count < payload_count
+                    || (queue_count == payload_count && push.pk.rssi > queue.push.pk.rssi)
+                {
+                    *queue = DataItem { push, payload, data };
                 }
                 false
             }
@@ -128,9 +115,7 @@ impl DataCache {
     }
 }
 
-static DATA_QUEUE: Lazy<DataCache> = Lazy::new(|| DataCache {
-    map: Default::default(),
-});
+static DATA_QUEUE: Lazy<DataCache> = Lazy::new(|| DataCache { map: Default::default() });
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub(crate) struct PushData {
@@ -150,7 +135,6 @@ pub(crate) async fn node_data(gw: LoRaGate, rssi: i32, data: PushData) {
 }
 
 pub(crate) async fn node_data_decode(mut gw: LoRaGate, data: PushData) -> DeviceResult {
-    
     let phy = lora::parse::LoraMacDecode::switch(data.pk.data.as_bytes())?;
 
     gw.update_tmst(data.pk.tmst).await?;
@@ -166,14 +150,7 @@ pub(crate) async fn node_data_decode(mut gw: LoRaGate, data: PushData) -> Device
                         info!("Discard duplicate requests");
                     }
                     Some((push, req)) => {
-                        request_join(
-                            app_eui,
-                            dev_eui,
-                            &push,
-                            &req,
-                            gw,
-                        )
-                            .await;
+                        request_join(app_eui, dev_eui, &push, &req, gw).await;
                     }
                 }
             }
@@ -196,10 +173,7 @@ async fn decode_payload(
     node.update_time().await?;
     let conn = &GLOBAL_STATE.db;
     let mut redis = RedisClient::get_client().get_multiplexed_conn().await?;
-    let all_data = MqttRawData {
-        device: node.info.device_id,
-        bytes: push_data.pk.data.clone(),
-    };
+    let all_data = MqttRawData { device: node.info.device_id, bytes: push_data.pk.data.clone() };
     let msg = MqttMessage::new_row_data(&all_data, 1)?;
     node.update_gateway().await?;
 
@@ -213,21 +187,22 @@ async fn decode_payload(
             tracing::info!("UpLink: {:02X?}", data);
             node.pull_task(data, push_data, header).await?;
             LoRaNodeEvent::uplink(header, node, push_data, data, &mut redis).await?;
-            match node.info.script { 
+            match node.info.script {
                 Some(o) => {
-                    let script = common_define::db::DecodeScriptEntity::find_by_id(o)
-                        .one(conn)
-                        .await?;
+                    let script =
+                        common_define::db::DecodeScriptEntity::find_by_id(o).one(conn).await?;
                     match script {
                         None => {
                             warn!("Not found Script");
                         }
                         Some(script) => {
                             let bytes_b64 = data.encode_base64();
-                            let decodedata = GLOBAL_DEPEND.decode_with_code(o, script.script.as_str(), RawData::new(data)).map_err(|e| DeviceError::data("js decode"))?;
+                            let decodedata = GLOBAL_DEPEND
+                                .decode_with_code(o, script.script.as_str(), RawData::new(data))
+                                .map_err(|e| DeviceError::data("js decode"))?;
                             if decodedata.data.is_empty() {
                                 warn!("js return null");
-                                return Ok(())
+                                return Ok(());
                             }
                             let last_key = last_device_data_key(node.info.device_id);
                             let data: DbDecodeData = decodedata.into();
@@ -264,7 +239,13 @@ async fn decode_payload(
                     };
                     if let Some(status) = decoded_data.status {
                         debug!("change battery status");
-                        redis.hset(node.key.as_str(), (NodeInfo::battery(),status.battery), (NodeInfo::charge(), status.charge)).await?;
+                        redis
+                            .hset(
+                                node.key.as_str(),
+                                (NodeInfo::battery(), status.battery),
+                                (NodeInfo::charge(), status.charge),
+                            )
+                            .await?;
                     }
                     data.insert(conn).await?;
                 }
@@ -323,11 +304,11 @@ async fn request_warp(
     };
     if info.join_type == LoRaJoinType::ABP {
         warn!("device not is otaa device");
-        return Ok(())
+        return Ok(());
     }
     if info.app_eui != app_eui {
         warn!("device app eui mismatch");
-        return Ok(())
+        return Ok(());
     }
     LoRaNodeManager::new_otaa_node(data, info, req.dev_nonce(), gw).await?;
     Ok(())
@@ -342,7 +323,7 @@ async fn decode_enc_payload(
     gw: LoRaGate,
 ) -> DeviceResult {
     let mut node = LoRaNodeManager::get_node_with_gateway(dev_addr, gw).await?;
-    
+
     if up_count < 5 {
         let otaa_info = node.get_otaa_info().await?;
         if let Some(otaa_info) = otaa_info {
@@ -353,7 +334,10 @@ async fn decode_enc_payload(
                         .one(&GLOBAL_STATE.db)
                         .await?
                         .ok_or_else(|| {
-                            warn!("device({}) eui({}) is delete", node.info.device_id, node.info.dev_eui);
+                            warn!(
+                                "device({}) eui({}) is delete",
+                                node.info.device_id, node.info.dev_eui
+                            );
                         })?;
                     let mut active_model = db_info.into_active_model();
                     active_model.nwk_skey = ActiveValue::Set(otaa_info.nwk_skey);
@@ -368,7 +352,7 @@ async fn decode_enc_payload(
                     node.info.dev_non = otaa_info.dev_nonce as i32;
                     node.info.net_id = otaa_info.net_id as i32;
                     node.info.app_non = otaa_info.app_nonce as i32;
-                    
+
                     redis::cmd("HSET")
                         .arg(&node.key)
                         .arg(NodeInfo::nwk_skey())
@@ -390,7 +374,7 @@ async fn decode_enc_payload(
                 }
                 Err(_) => {
                     warn!("otaa join decrypt mic failed");
-                    return Err(DeviceError::Empty)
+                    return Err(DeviceError::Empty);
                 }
             }
         }
@@ -405,7 +389,7 @@ async fn decode_enc_payload(
         up_count,
         data,
     )
-        .await?;
+    .await?;
     Ok(())
 }
 
@@ -433,13 +417,7 @@ async fn decode_node_payload(
             let datas = DATA_QUEUE.get(node.info.dev_addr);
             match datas {
                 Some(d) => {
-                    decode_payload(
-                        &d.push,
-                        &mut node,
-                        &d.payload,
-                        d.data,
-                    )
-                        .await?;
+                    decode_payload(&d.push, &mut node, &d.payload, d.data).await?;
                 }
                 None => {
                     warn!("no datas");
@@ -452,17 +430,19 @@ async fn decode_node_payload(
     }
 }
 
-
-
-async fn payload_decode(node: &mut LoRaNode, payload: &LoRaPayload, current_up_count: u16)
-  -> DeviceResult<DecryptedDataPayload<Vec<u8>>>
-{
-    
+async fn payload_decode(
+    node: &mut LoRaNode,
+    payload: &LoRaPayload,
+    current_up_count: u16,
+) -> DeviceResult<DecryptedDataPayload<Vec<u8>>> {
     let pre_count = node.info.up_count as u16;
     let mut new_up_count = node.info.up_count;
     let up_count_diff = current_up_count.wrapping_sub(pre_count) as u32;
-    info!("pre_count: {}, count: {}, up_count_diff: {}", pre_count, current_up_count, up_count_diff );
-    let decode = if up_count_diff < ( 1 << 15 ) {
+    info!(
+        "pre_count: {}, count: {}, up_count_diff: {}",
+        pre_count, current_up_count, up_count_diff
+    );
+    let decode = if up_count_diff < (1 << 15) {
         new_up_count = new_up_count.wrapping_add(up_count_diff);
         payload.decrypt_mic(&node.info.nwk_skey, &node.info.app_skey, new_up_count)
     } else {
@@ -471,10 +451,11 @@ async fn payload_decode(node: &mut LoRaNode, payload: &LoRaPayload, current_up_c
     };
     if let Ok(o) = decode {
         node.update_up_count(new_up_count).await?;
-        return Ok(o)
+        return Ok(o);
     }
     // ABP device reset
-    let payload = payload.decrypt_mic(&node.info.nwk_skey, &node.info.app_skey, current_up_count as u32)?;
+    let payload =
+        payload.decrypt_mic(&node.info.nwk_skey, &node.info.app_skey, current_up_count as u32)?;
     node.update_up_count(current_up_count as u32).await?;
     node.reset_down_count().await?;
     Ok(payload)

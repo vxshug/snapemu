@@ -65,10 +65,7 @@ async fn get_all_config(State(state): State<AppState>) -> ApiResponseResult<Conf
             create_time: item.create_time,
         })
         .collect();
-    Ok(Config {
-        config: config_item,
-    }
-    .into())
+    Ok(Config { config: config_item }.into())
 }
 
 ///
@@ -90,10 +87,8 @@ async fn put_config_info(
     let conn = &state.db;
     let mut v = vec![];
     for (name, value) in config {
-        let it = SnapConfigEntity::find()
-            .filter(SnapConfigColumn::Name.eq(&name))
-            .one(conn)
-            .await?;
+        let it =
+            SnapConfigEntity::find().filter(SnapConfigColumn::Name.eq(&name)).one(conn).await?;
         let r = match it {
             None => {
                 let model = SnapConfigActiveModel {
@@ -110,12 +105,7 @@ async fn put_config_info(
                 model.update(conn).await?
             }
         };
-        v.push(ConfigItem {
-            id: r.id,
-            name: r.name,
-            value: r.value,
-            create_time: r.create_time,
-        })
+        v.push(ConfigItem { id: r.id, name: r.name, value: r.value, create_time: r.create_time })
     }
     Ok(Config { config: v }.into())
 }

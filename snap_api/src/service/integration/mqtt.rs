@@ -1,18 +1,24 @@
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, ModelTrait, QueryFilter};
-use common_define::db::{SnapIntegrationMqttActiveModel, SnapIntegrationMqttColumn, SnapIntegrationMqttEntity, SnapIntegrationMqttModel};
-use common_define::Id;
-use common_define::time::Timestamp;
-use crate::{CurrentUser, tt};
 use crate::error::{ApiError, ApiResult};
 use crate::service::device::DeviceService;
 use crate::service::integration::IntegrationService;
 use crate::utils::Rand;
+use crate::{tt, CurrentUser};
+use common_define::db::{
+    SnapIntegrationMqttActiveModel, SnapIntegrationMqttColumn, SnapIntegrationMqttEntity,
+    SnapIntegrationMqttModel,
+};
+use common_define::time::Timestamp;
+use common_define::Id;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, ModelTrait,
+    QueryFilter,
+};
 
 #[derive(serde::Deserialize)]
 pub struct IntegrationMqttReq {
     group: Option<bool>,
     name: String,
-    device: Id
+    device: Id,
 }
 
 #[derive(serde::Serialize)]
@@ -28,20 +34,28 @@ pub struct MqttToken {
 #[derive(serde::Serialize)]
 pub struct MqttTokenResp {
     count: usize,
-    tokens: Vec<MqttToken>
+    tokens: Vec<MqttToken>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Copy, Clone, Debug, strum::AsRefStr, strum::EnumString)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Copy,
+    Clone,
+    Debug,
+    strum::AsRefStr,
+    strum::EnumString
+)]
 pub enum ShareType {
     Device,
-    Group
+    Group,
 }
 
 impl IntegrationService {
     pub async fn mqtt_register<C: ConnectionTrait>(
         user: &CurrentUser,
         device: IntegrationMqttReq,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<MqttToken> {
         let share_type = match device.group {
             None => {
@@ -49,7 +63,9 @@ impl IntegrationService {
                 ShareType::Device
             }
             Some(f) => {
-                if f { ShareType::Group } else {
+                if f {
+                    ShareType::Group
+                } else {
                     DeviceService::query_one(user.id, device.device, conn).await?;
                     ShareType::Device
                 }
@@ -79,40 +95,45 @@ impl IntegrationService {
             enable: true,
             username: device.device.to_string(),
             password: model.token,
-            client_id: format!("{}@{}@[index]", device.device, share_type.as_ref().to_ascii_lowercase()),
+            client_id: format!(
+                "{}@{}@[index]",
+                device.device,
+                share_type.as_ref().to_ascii_lowercase()
+            ),
             create_time: now,
         })
     }
 
     pub async fn query_all<C: ConnectionTrait>(
         user: &CurrentUser,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<MqttTokenResp> {
         let tokens = SnapIntegrationMqttEntity::find()
             .filter(SnapIntegrationMqttColumn::UserId.eq(user.id))
             .all(conn)
             .await?;
-        let tokens: Vec<MqttToken> = tokens.into_iter().map(|item| {
-            MqttToken {
+        let tokens: Vec<MqttToken> = tokens
+            .into_iter()
+            .map(|item| MqttToken {
                 name: item.name,
                 enable: item.enable,
                 username: item.share.to_string(),
                 password: item.token,
-                client_id: format!("{}@{}@[index]", item.share, item.share_type.as_str().to_ascii_lowercase()),
+                client_id: format!(
+                    "{}@{}@[index]",
+                    item.share,
+                    item.share_type.as_str().to_ascii_lowercase()
+                ),
                 create_time: item.create_time,
-            }
-        }).collect();
-        Ok(MqttTokenResp {
-            count: tokens.len(),
-            tokens,
-        })
+            })
+            .collect();
+        Ok(MqttTokenResp { count: tokens.len(), tokens })
     }
 
     pub async fn query_one<C: ConnectionTrait>(
         token: &str,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<SnapIntegrationMqttModel> {
-
         let token = SnapIntegrationMqttEntity::find()
             .filter(SnapIntegrationMqttColumn::Token.eq(token))
             .one(conn)
@@ -120,17 +141,11 @@ impl IntegrationService {
 
         match token {
             Some(token) => Ok(token),
-            None => Err(ApiError::User(
-               tt!("messages.device.mqtt.not_found_device")
-            ))
+            None => Err(ApiError::User(tt!("messages.device.mqtt.not_found_device"))),
         }
     }
 
-    pub async fn delete<C: ConnectionTrait>(
-        user: &CurrentUser,
-        id: Id,
-        conn: &C
-    ) -> ApiResult {
+    pub async fn delete<C: ConnectionTrait>(user: &CurrentUser, id: Id, conn: &C) -> ApiResult {
         let token = SnapIntegrationMqttEntity::find_by_id(id).one(conn).await?;
         if let Some(token) = token {
             if token.user_id == user.id {

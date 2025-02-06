@@ -22,9 +22,11 @@ use crate::service::snap::SnapDeviceService;
 use crate::{get_current_user, tt, AppState, AppString, GLOBAL_PRODUCT_NAME};
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new()
-        .routes(routes!(get_all_device, post_device))
-        .routes(routes!(get_device, put_device, delete_device))
+    OpenApiRouter::new().routes(routes!(get_all_device, post_device)).routes(routes!(
+        get_device,
+        put_device,
+        delete_device
+    ))
 }
 
 /// Get all devices
@@ -229,4 +231,3 @@ async fn put_device(
 
     Ok(String::new().into())
 }
-

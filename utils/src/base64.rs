@@ -6,11 +6,9 @@ pub trait EncodeBase64: AsRef<[u8]> {
     }
 }
 
-
 pub trait DecodeBase64: AsRef<[u8]> {
-    fn decode_base64(&self) -> Result<Vec<u8>, &Self>{
-        base64::engine::general_purpose::STANDARD.decode(self.as_ref())
-            .or(Err(self))
+    fn decode_base64(&self) -> Result<Vec<u8>, &Self> {
+        base64::engine::general_purpose::STANDARD.decode(self.as_ref()).or(Err(self))
     }
 }
 

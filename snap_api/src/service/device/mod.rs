@@ -1,8 +1,7 @@
-
+pub mod define;
 pub(crate) mod device;
+mod function;
 pub(crate) mod group;
 pub(crate) mod order;
-mod function;
-pub mod define;
 
 pub(crate) struct DeviceService;

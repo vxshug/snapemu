@@ -1,15 +1,14 @@
 mod load;
 
+pub use config::Value;
 pub use load::SnapConfig;
 pub use load::SnapConfigBuilder;
-pub use config::Value;
 
-
-pub use redis::RedisConfig;
 pub use database::DatabaseConfig;
 pub use device_topic::DeviceTopicConfig;
-pub use log_level::LogLevelConfig;
 pub use log_level::init_logging;
+pub use log_level::LogLevelConfig;
+pub use redis::RedisConfig;
 
 mod redis {
     use serde::Deserialize;
@@ -27,7 +26,7 @@ mod redis {
         #[serde(default)]
         pub password: Option<String>,
         #[serde(default = "_default_redis_pool")]
-        pub pool: usize
+        pub pool: usize,
     }
 
     fn _default_redis_host() -> String {
@@ -42,7 +41,7 @@ mod redis {
     fn _default_redis_pool() -> usize {
         100
     }
-    
+
     impl Default for RedisConfig {
         fn default() -> Self {
             Self {
@@ -56,7 +55,6 @@ mod redis {
         }
     }
 }
-
 
 mod database {
     use serde::Deserialize;
@@ -97,7 +95,7 @@ mod database {
     fn _default_database_password() -> String {
         "postgres".to_string()
     }
-    
+
     impl Default for DatabaseConfig {
         fn default() -> Self {
             Self {
@@ -134,13 +132,13 @@ mod device_topic {
     fn _default_down_topic() -> String {
         "LoRa-Down-Data".to_string()
     }
-    
+
     impl Default for DeviceTopicConfig {
         fn default() -> Self {
             Self {
                 data: _default_data_topic(),
                 event: _default_event_topic(),
-                down: _default_down_topic()
+                down: _default_down_topic(),
             }
         }
     }
@@ -166,7 +164,7 @@ mod log_level {
                 LogLevelConfig::DEBUG => Self::DEBUG,
                 LogLevelConfig::INFO => Self::INFO,
                 LogLevelConfig::WARN => Self::WARN,
-                LogLevelConfig::ERROR => Self::ERROR
+                LogLevelConfig::ERROR => Self::ERROR,
             }
         }
     }
@@ -176,11 +174,9 @@ mod log_level {
             Self::DEBUG
         }
     }
-    
+
     pub fn init_logging(level: LogLevelConfig) {
         let log_level: LevelFilter = level.into();
-        tracing_subscriber::fmt()
-            .with_max_level(log_level)
-            .init();
+        tracing_subscriber::fmt().with_max_level(log_level).init();
     }
 }

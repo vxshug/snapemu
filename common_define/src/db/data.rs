@@ -1,23 +1,12 @@
 use crate::decode::DecodeData;
 
-
-#[derive(
-    Debug,
-    Clone,
-    serde::Serialize,
-    serde::Deserialize,
-    Default,
-    PartialEq,
-    Eq
-)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct DbDecodeData(pub Vec<DecodeData>);
 
 impl std::convert::From<DbDecodeData> for sea_orm::Value {
     fn from(source: DbDecodeData) -> Self {
-        sea_orm::Value::Json(
-            Some(Box::new(serde_json::to_value(source).unwrap_or_default()))
-        )
+        sea_orm::Value::Json(Some(Box::new(serde_json::to_value(source).unwrap_or_default())))
     }
 }
 
@@ -26,8 +15,10 @@ impl sea_orm::TryGetable for DbDecodeData {
         res: &sea_orm::QueryResult,
         idx: I,
     ) -> std::result::Result<Self, sea_orm::TryGetError> {
-        <serde_json::Value as sea_orm::TryGetable>::try_get_by(res, idx)
-            .and_then(|v| serde_json::from_value(v).map_err(|e| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(e.to_string()))))
+        <serde_json::Value as sea_orm::TryGetable>::try_get_by(res, idx).and_then(|v| {
+            serde_json::from_value(v)
+                .map_err(|e| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(e.to_string())))
+        })
     }
 }
 

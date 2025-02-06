@@ -74,7 +74,6 @@ async fn all_group(State(state): State<AppState>) -> ApiResponseResult<Vec<Devic
     Ok(groups.into())
 }
 
-
 /// Deleting a device group
 #[utoipa::path(
     method(delete),
@@ -101,7 +100,6 @@ async fn delete_group(
         .await?;
     Ok(tt!("messages.device.group.delete_success").into())
 }
-
 
 /// Device removal group
 #[utoipa::path(

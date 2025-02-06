@@ -1,15 +1,13 @@
-use base64::Engine;
-use common_define::lora::LoRaRegion;
-use lorawan::{keys::AES128};
-use lorawan::maccommands::SerializableMacCommand;
-use common_define::db::LoRaAddr;
-use common_define::lorawan_bridge::{DownStream, RXPK, TXPK, UpMode};
-use device_info::lorawan::{GatewayInfo, NodeInfo};
-use crate::{DeviceResult, DeviceError};
 use crate::man::data::{DataError, DownloadData};
-use crate::{man::{data::{CommandBuilder}}, service::lorawan_node::PushData};
-
-
+use crate::{man::data::CommandBuilder, service::lorawan_node::PushData};
+use crate::{DeviceError, DeviceResult};
+use base64::Engine;
+use common_define::db::LoRaAddr;
+use common_define::lora::LoRaRegion;
+use common_define::lorawan_bridge::{DownStream, UpMode, RXPK, TXPK};
+use device_info::lorawan::{GatewayInfo, NodeInfo};
+use lorawan::keys::AES128;
+use lorawan::maccommands::SerializableMacCommand;
 
 pub(crate) struct RespDataBuilder<'a> {
     node: &'a NodeInfo,
@@ -17,24 +15,29 @@ pub(crate) struct RespDataBuilder<'a> {
 }
 
 impl<'a> RespDataBuilder<'a> {
-    pub fn new(
-        node: &'a NodeInfo,
-        meta: &'a PushData,
-    ) -> Self {
+    pub fn new(node: &'a NodeInfo, meta: &'a PushData) -> Self {
         Self { node, meta }
     }
-    pub(crate) fn build_with_task(&self, down: &DownloadData, token: u16, version: u8) -> DeviceResult<DownStream> {
+    pub(crate) fn build_with_task(
+        &self,
+        down: &DownloadData,
+        token: u16,
+        version: u8,
+    ) -> DeviceResult<DownStream> {
         let data = &down.bytes;
         self.build(data, &[], Some(down.port))
     }
-    pub(crate) fn build_ack(&self, mac: &[&dyn SerializableMacCommand]) -> DeviceResult<DownStream> {
-        self.build("",mac,  None)
+    pub(crate) fn build_ack(
+        &self,
+        mac: &[&dyn SerializableMacCommand],
+    ) -> DeviceResult<DownStream> {
+        self.build("", mac, None)
     }
     pub(crate) fn build<P: AsRef<[u8]>>(
-        &self, 
+        &self,
         data: P,
         mac: &[&dyn SerializableMacCommand],
-        port: Option<u8>,  
+        port: Option<u8>,
     ) -> DeviceResult<DownStream> {
         let data = data.as_ref();
         let mut phy = lorawan::creator::DataPayloadCreator::new();
@@ -46,7 +49,9 @@ impl<'a> RespDataBuilder<'a> {
         if let Some(port) = port {
             phy.set_f_port(port);
         }
-        let r = phy.build(data, mac, &self.node.nwk_skey, &self.node.app_skey).map_err(|e| DataError::from(e))?;
+        let r = phy
+            .build(data, mac, &self.node.nwk_skey, &self.node.app_skey)
+            .map_err(|e| DataError::from(e))?;
         let len = r.len();
         let data = base64::engine::general_purpose::STANDARD.encode(r);
         let txpk = self.calc_args(data, Some(len as u32))?;
@@ -67,26 +72,12 @@ impl<'a> RespDataBuilder<'a> {
         let datr = self.calc_datr();
         let codr = self.calc_codr().into();
         let ncrc = true.into();
-        Ok(TXPK { 
-            imme, 
-            tmst, 
-            freq, 
-            rfch, 
-            powe, 
-            modu, 
-            datr, 
-            codr, 
-            ipol, 
-            size, 
-            data, 
-            ncrc 
-        })
+        Ok(TXPK { imme, tmst, freq, rfch, powe, modu, datr, codr, ipol, size, data, ncrc })
     }
 
     fn calc_datr(&self) -> Option<String> {
         let (sf, bw) = {
             let s = &self.meta.pk.datr;
-
 
             let (sf_num, bw) = s.split_once("BW")?;
             let sf: i32 = sf_num[2..].parse().ok()?;
@@ -94,18 +85,18 @@ impl<'a> RespDataBuilder<'a> {
             (sf, bw)
         };
         Some(match self.node.region {
-            LoRaRegion::EU868 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::US915 => format!("SF{}BW{}",sf, 500),
-            LoRaRegion::CN779 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::EU433 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::AU915 => format!("SF{}BW{}",sf, 500),
-            LoRaRegion::CN470 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::AS923_1 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::AS923_2 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::AS923_3 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::KR920 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::IN865 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::RU864 => format!("SF{}BW{}",sf, bw),
+            LoRaRegion::EU868 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::US915 => format!("SF{}BW{}", sf, 500),
+            LoRaRegion::CN779 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::EU433 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::AU915 => format!("SF{}BW{}", sf, 500),
+            LoRaRegion::CN470 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::AS923_1 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::AS923_2 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::AS923_3 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::KR920 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::IN865 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::RU864 => format!("SF{}BW{}", sf, bw),
         })
     }
     fn calc_tmst(&self) -> u32 {
@@ -128,7 +119,7 @@ impl<'a> RespDataBuilder<'a> {
             common_define::lora::LoRaRegion::AS923_3 => 14,
             common_define::lora::LoRaRegion::KR920 => 17,
             common_define::lora::LoRaRegion::IN865 => 17,
-            common_define::lora::LoRaRegion::RU864 => 17
+            common_define::lora::LoRaRegion::RU864 => 17,
         }
     }
     fn calc_codr(&self) -> String {
@@ -144,7 +135,7 @@ impl<'a> RespDataBuilder<'a> {
             common_define::lora::LoRaRegion::AS923_3 => "4/5",
             common_define::lora::LoRaRegion::KR920 => "4/5",
             common_define::lora::LoRaRegion::IN865 => "4/5",
-            common_define::lora::LoRaRegion::RU864 => "4/5"
+            common_define::lora::LoRaRegion::RU864 => "4/5",
         };
         s.into()
     }
@@ -156,35 +147,38 @@ pub(crate) struct RespDataClassCBuilder<'a> {
 }
 
 impl<'a> RespDataClassCBuilder<'a> {
-    pub fn new(
-        node: &'a NodeInfo,
-        gate: &'a GatewayInfo,
-    ) -> Self {
+    pub fn new(node: &'a NodeInfo, gate: &'a GatewayInfo) -> Self {
         Self { node, gate }
     }
-    pub(crate) fn build_io<T: CommandBuilder>(&self, 
-        command: T, 
-        _gateway: uuid::Uuid, 
-        token: u16, 
+    pub(crate) fn build_io<T: CommandBuilder>(
+        &self,
+        command: T,
+        _gateway: uuid::Uuid,
+        token: u16,
     ) -> DeviceResult<DownStream> {
         let command = command.data();
-        self.build(command, 3,  token )
+        self.build(command, 3, token)
     }
     pub(crate) fn build_with_task(
         &self,
         task: &DownloadData,
-        token: u16, 
+        token: u16,
     ) -> DeviceResult<DownStream> {
         self.build(task.bytes.as_ref(), task.port, token)
     }
-    pub(crate) fn build_data<D: AsRef<[u8]>>(&self, data: D, _gateway: uuid::Uuid, token: u16) -> DeviceResult<DownStream> {
-        self.build(data, 2,  token)
+    pub(crate) fn build_data<D: AsRef<[u8]>>(
+        &self,
+        data: D,
+        _gateway: uuid::Uuid,
+        token: u16,
+    ) -> DeviceResult<DownStream> {
+        self.build(data, 2, token)
     }
     pub(crate) fn build<P: AsRef<[u8]>>(
-        &self, 
-        data: P, 
-        port: u8,  
-        token: u16, 
+        &self,
+        data: P,
+        port: u8,
+        token: u16,
     ) -> DeviceResult<DownStream> {
         let data = data.as_ref();
         let mut phy = lorawan::creator::DataPayloadCreator::new();
@@ -194,13 +188,14 @@ impl<'a> RespDataClassCBuilder<'a> {
             .set_dev_addr(&self.node.dev_addr.to_bytes())
             .set_fctrl(&lorawan::parser::FCtrl::new(0xA0, false))
             .set_fcnt(self.node.down_count);
-        let r = phy.build(data, &[], &self.node.nwk_skey, &self.node.app_skey).map_err(DataError::from)?;
+        let r = phy
+            .build(data, &[], &self.node.nwk_skey, &self.node.app_skey)
+            .map_err(DataError::from)?;
         let len = r.len();
         let data = base64::engine::general_purpose::STANDARD.encode(r);
         let txpk = self.calc_args(data, Some(len as u32))?;
         let resp = DownStream::new(txpk);
         Ok(resp)
-
     }
     pub fn calc_args(&self, data: String, size: Option<u32>) -> DeviceResult<TXPK> {
         let imme = true;
@@ -215,20 +210,7 @@ impl<'a> RespDataClassCBuilder<'a> {
         let datr = datr_calc(self.node.des_rx2_dr, 125).into();
         let codr = Some("4/5".into());
         let ncrc = true.into();
-        Ok(TXPK { 
-            imme, 
-            tmst, 
-            freq, 
-            rfch, 
-            powe, 
-            modu, 
-            datr, 
-            codr, 
-            ipol, 
-            size, 
-            data, 
-            ncrc 
-        })
+        Ok(TXPK { imme, tmst, freq, rfch, powe, modu, datr, codr, ipol, size, data, ncrc })
     }
 
     fn calc_tmst(&self) -> Option<u32> {
@@ -244,19 +226,23 @@ pub(crate) struct JoinRespDataBuilder<'a> {
 
 impl<'a> JoinRespDataBuilder<'a> {
     const JOIN_ACCEPT_DELAY1: u32 = 5;
-    pub fn new(
-        node: &'a NodeInfo,
-        meta: &'a PushData
-    ) -> Self {
+    pub fn new(node: &'a NodeInfo, meta: &'a PushData) -> Self {
         Self { node, meta }
     }
-    pub(crate) fn build(&self, addr: LoRaAddr, app_nonce: u32, net_id: u32, app_key: &AES128) -> DeviceResult<DownStream> {
+    pub(crate) fn build(
+        &self,
+        addr: LoRaAddr,
+        app_nonce: u32,
+        net_id: u32,
+        app_key: &AES128,
+    ) -> DeviceResult<DownStream> {
         let mut build = super::join_accept::AcceptJoin::new();
-        let join_data = build.set_dev_addr(addr.into())
-                .set_app_nonce(app_nonce)
-                .set_rx_delay(self.node.rx1_delay as u8)
-                .set_net_id(net_id)
-                .build(app_key)?;
+        let join_data = build
+            .set_dev_addr(addr.into())
+            .set_app_nonce(app_nonce)
+            .set_rx_delay(self.node.rx1_delay as u8)
+            .set_net_id(net_id)
+            .build(app_key)?;
         let len = join_data.len();
         let data = base64::engine::general_purpose::STANDARD.encode(join_data);
         let txpk = self.calc_args(data, Some(len as u32))?;
@@ -274,22 +260,8 @@ impl<'a> JoinRespDataBuilder<'a> {
         let datr = self.calc_datr();
         let codr = self.calc_codr().into();
         let ncrc = true.into();
-        Ok(TXPK { 
-            imme, 
-            tmst, 
-            freq, 
-            rfch, 
-            powe, 
-            modu, 
-            datr, 
-            codr, 
-            ipol, 
-            size, 
-            data, 
-            ncrc 
-        })
+        Ok(TXPK { imme, tmst, freq, rfch, powe, modu, datr, codr, ipol, size, data, ncrc })
     }
-
 
     fn calc_datr(&self) -> Option<String> {
         let (sf, bw) = {
@@ -300,18 +272,18 @@ impl<'a> JoinRespDataBuilder<'a> {
             (sf, bw)
         };
         Some(match self.node.region {
-            LoRaRegion::EU868 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::US915 => format!("SF{}BW{}",sf, 500),
-            LoRaRegion::CN779 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::EU433 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::AU915 => format!("SF{}BW{}",sf, 500),
-            LoRaRegion::CN470 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::AS923_1 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::AS923_2 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::AS923_3 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::KR920 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::IN865 => format!("SF{}BW{}",sf, bw),
-            LoRaRegion::RU864 => format!("SF{}BW{}",sf, bw),
+            LoRaRegion::EU868 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::US915 => format!("SF{}BW{}", sf, 500),
+            LoRaRegion::CN779 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::EU433 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::AU915 => format!("SF{}BW{}", sf, 500),
+            LoRaRegion::CN470 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::AS923_1 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::AS923_2 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::AS923_3 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::KR920 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::IN865 => format!("SF{}BW{}", sf, bw),
+            LoRaRegion::RU864 => format!("SF{}BW{}", sf, bw),
         })
     }
     fn calc_tmst(&self) -> u32 {
@@ -334,7 +306,7 @@ impl<'a> JoinRespDataBuilder<'a> {
             common_define::lora::LoRaRegion::AS923_3 => 14,
             common_define::lora::LoRaRegion::KR920 => 17,
             common_define::lora::LoRaRegion::IN865 => 17,
-            common_define::lora::LoRaRegion::RU864 => 17
+            common_define::lora::LoRaRegion::RU864 => 17,
         }
     }
     fn calc_codr(&self) -> String {
@@ -350,7 +322,7 @@ impl<'a> JoinRespDataBuilder<'a> {
             common_define::lora::LoRaRegion::AS923_3 => "4/5",
             common_define::lora::LoRaRegion::KR920 => "4/5",
             common_define::lora::LoRaRegion::IN865 => "4/5",
-            common_define::lora::LoRaRegion::RU864 => "4/5"
+            common_define::lora::LoRaRegion::RU864 => "4/5",
         };
         s.into()
     }
@@ -443,49 +415,50 @@ impl DownFreqDrBand {
 
     fn freq_chan(freq: f32, region: LoRaRegion) -> DeviceResult<u8> {
         match region {
-            LoRaRegion::EU868 => {
-                Ok(0)
-            }
+            LoRaRegion::EU868 => Ok(0),
             LoRaRegion::US915 => {
                 Self::_calc_chan(freq, Self::US915_START_1, Self::US915_END_1, Self::US915_STEP_1)
-                .or(
-                        Self::_calc_chan(freq, Self::US915_START_2, Self::US915_END_2, Self::US915_STEP_2)
-                        .map(|c| c + 64)
+                    .or(Self::_calc_chan(
+                        freq,
+                        Self::US915_START_2,
+                        Self::US915_END_2,
+                        Self::US915_STEP_2,
                     )
+                    .map(|c| c + 64))
             }
             LoRaRegion::CN779 => {
                 Self::_calc_chan(freq, Self::CN779_START_1, Self::CN779_END_1, Self::CN779_STEP_1)
-                .or(
-                        Self::_calc_chan(freq, Self::CN779_START_2, Self::CN779_END_2, Self::CN779_STEP_2)
-                        .map(|c| c + 3)
+                    .or(Self::_calc_chan(
+                        freq,
+                        Self::CN779_START_2,
+                        Self::CN779_END_2,
+                        Self::CN779_STEP_2,
                     )
+                    .map(|c| c + 3))
             }
             LoRaRegion::EU433 => {
                 Self::_calc_chan(freq, Self::EU443_START, Self::EU443_END, Self::EU443_STEP)
             }
             LoRaRegion::AU915 => {
                 Self::_calc_chan(freq, Self::AU915_START_1, Self::AU915_END_1, Self::AU915_STEP_1)
-                .or(
-                        Self::_calc_chan(freq, Self::AU915_START_2, Self::AU915_END_2, Self::AU915_STEP_2)
-                        .map(|c| c + 64)
+                    .or(Self::_calc_chan(
+                        freq,
+                        Self::AU915_START_2,
+                        Self::AU915_END_2,
+                        Self::AU915_STEP_2,
                     )
+                    .map(|c| c + 64))
             }
             LoRaRegion::CN470 => {
                 Self::_calc_chan(freq, Self::CN470_START, Self::CN470_END, Self::CN470_STEP)
             }
-            LoRaRegion::AS923_1 => {
-                Ok(0)
-            }
+            LoRaRegion::AS923_1 => Ok(0),
 
             LoRaRegion::KR920 => {
                 Self::_calc_chan(freq, Self::KR920_START, Self::KR920_END, Self::KR920_STEP)
             }
-            LoRaRegion::AS923_2 => {
-                Ok(0)
-            }
-            LoRaRegion::AS923_3 => {
-                Ok(0)
-            }
+            LoRaRegion::AS923_2 => Ok(0),
+            LoRaRegion::AS923_3 => Ok(0),
             LoRaRegion::IN865 => {
                 if (freq - Self::IN865_1).abs() < 0.00001 {
                     Ok(0)
@@ -509,7 +482,7 @@ impl DownFreqDrBand {
         }
     }
 
-    fn _calc_chan(freq: f32,left: f32, right: f32, setup: f32) -> DeviceResult<u8> {
+    fn _calc_chan(freq: f32, left: f32, right: f32, setup: f32) -> DeviceResult<u8> {
         if (freq < (right + 0.001)) && ((left - 0.001) < freq) {
             Ok(((freq - left) / setup + 0.001) as u8)
         } else {

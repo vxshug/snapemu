@@ -1,14 +1,14 @@
+use crate::error::{ApiError, ApiResult};
+use crate::load::load_config;
 use std::sync::Mutex;
 use tokio_stream::Stream;
 use tracing::log::warn;
-use crate::error::{ApiError, ApiResult};
-use crate::load::load_config;
 
 static LOCAL_CLIENT: Mutex<Option<RedisClient>> = Mutex::new(None);
 
 #[derive(Clone)]
 pub struct RedisClient {
-    client: redis::Client
+    client: redis::Client,
 }
 
 impl RedisClient {
@@ -29,11 +29,10 @@ impl RedisClient {
 
     pub fn get_client() -> Self {
         {
-            if let Some(client) = LOCAL_CLIENT.lock().unwrap()
-                .as_ref().map(|client| client.clone()) {
+            if let Some(client) = LOCAL_CLIENT.lock().unwrap().as_ref().map(|client| client.clone())
+            {
                 return client;
             }
-
         }
         Self::init()
     }
@@ -56,15 +55,12 @@ impl RedisClient {
 }
 
 pub struct RedisRecv {
-    conn: redis::aio::PubSub
+    conn: redis::aio::PubSub,
 }
 
 impl RedisRecv {
-
     pub fn new(conn: redis::aio::PubSub) -> Self {
-        Self {
-            conn
-        }
+        Self { conn }
     }
 
     pub async fn reconnect(&mut self) -> Option<()> {
@@ -77,17 +73,13 @@ impl RedisRecv {
             Ok(_) => Ok(()),
             Err(e) => {
                 if e.is_io_error() {
-                    self.reconnect().await.ok_or(ApiError::Server {
-                        case: "redis",
-                        msg: "redis reconnect".into(),
-                    })?;
+                    self.reconnect()
+                        .await
+                        .ok_or(ApiError::Server { case: "redis", msg: "redis reconnect".into() })?;
                     self.conn.subscribe(topic).await?;
-                    return Ok(())
+                    return Ok(());
                 }
-                Err(ApiError::Server {
-                    case: "redis",
-                    msg: "redis reconnect error".into(),
-                })
+                Err(ApiError::Server { case: "redis", msg: "redis reconnect error".into() })
             }
         }
     }
@@ -102,12 +94,9 @@ impl RedisRecv {
                         msg: "redis unsubscribe".into(),
                     })?;
                     self.conn.unsubscribe(topic).await?;
-                    return Ok(())
+                    return Ok(());
                 }
-                Err(ApiError::Server {
-                    case: "redis",
-                    msg: "redis unsubscribe error".into(),
-                })
+                Err(ApiError::Server { case: "redis", msg: "redis unsubscribe error".into() })
             }
         }
     }

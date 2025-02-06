@@ -1,5 +1,5 @@
-mod device_group_cache;
 mod device_cache;
+mod device_group_cache;
 mod product_name_cache;
 
 pub use device_group_cache::DeviceGroupCache;

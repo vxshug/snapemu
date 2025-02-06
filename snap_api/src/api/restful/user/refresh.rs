@@ -1,8 +1,8 @@
-use axum::extract::State;
+use crate::api::SnJson;
 use crate::error::ApiResponseResult;
 use crate::service::user::{Token, TokenService};
-use crate::api::SnJson;
 use crate::AppState;
+use axum::extract::State;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, utoipa::ToSchema)]
 pub(crate) struct Refresh {

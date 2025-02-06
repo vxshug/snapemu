@@ -1,22 +1,27 @@
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, IntoActiveModel, QueryFilter};
 use crate::error::{ApiError, ApiResult};
-use crate::{CurrentUser, get_current_user, tt};
-use serde::{Deserialize, Serialize};
-use tracing::instrument;
-use common_define::db::{DeviceLoraNodeActiveModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DeviceLoraNodeModel, Eui, Key, LoRaAddr};
-use common_define::Id;
-use common_define::lora::{LoRaJoinType, LoRaRegion};
-use common_define::product::{DeviceType, ProductType};
-use device_info::lorawan::NodeInfo;
-use tracing::warn;
 use crate::man::DeviceQueryClient;
 use crate::service::device::define::{DeviceParameter, LoRaNode};
 use crate::service::device::device::ExtraParm;
 use crate::service::device::DeviceService;
 use crate::utils::Checker;
+use crate::{get_current_user, tt, CurrentUser};
+use common_define::db::{
+    DeviceLoraNodeActiveModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DeviceLoraNodeModel,
+    Eui, Key, LoRaAddr,
+};
+use common_define::lora::{LoRaJoinType, LoRaRegion};
+use common_define::product::{DeviceType, ProductType};
+use common_define::Id;
+use device_info::lorawan::NodeInfo;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, IntoActiveModel,
+    QueryFilter,
+};
+use serde::{Deserialize, Serialize};
+use tracing::instrument;
+use tracing::warn;
 
 pub(crate) struct LoRaNodeService;
-
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct JoinParam {
@@ -69,15 +74,13 @@ pub(crate) struct LoraNodeDeviceDefault {
 }
 
 impl LoraNodeDeviceDefault {
-
     async fn with_bluetooth<C: ConnectionTrait>(
         user: &CurrentUser,
         req: ReqLoraNode,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<Self> {
-        let blue_param = req.blue_parm.ok_or(ApiError::User(
-            tt!("messages.device.lora.blue_param_missing")
-        ))?;
+        let blue_param =
+            req.blue_parm.ok_or(ApiError::User(tt!("messages.device.lora.blue_param_missing")))?;
         let eui = req.eui;
         let mut this = Self {
             eui,
@@ -108,10 +111,10 @@ impl LoraNodeDeviceDefault {
             dutycyle: blue_param.duty_cycle,
             product_type: ProductType::Monitor,
         };
-        let join_type = blue_param.join_type.or(blue_param.jion_type)
-            .ok_or(ApiError::User(
-                tt!("messages.device.lora.join_type_missing")
-            ))?;
+        let join_type = blue_param
+            .join_type
+            .or(blue_param.jion_type)
+            .ok_or(ApiError::User(tt!("messages.device.lora.join_type_missing")))?;
 
         match join_type {
             0 => {
@@ -121,9 +124,7 @@ impl LoraNodeDeviceDefault {
                 this.join_type = LoRaJoinType::OTAA;
             }
             _ => {
-                return Err(ApiError::User(
-                    tt!("messages.device.lora.join_type_missing")
-                ));
+                return Err(ApiError::User(tt!("messages.device.lora.join_type_missing")));
             }
         }
 
@@ -131,52 +132,27 @@ impl LoraNodeDeviceDefault {
     }
 
     #[instrument(skip_all)]
-    async fn  with_default<C: ConnectionTrait>(
-        req: ReqLoraNode,
-        conn: &C
-    ) -> ApiResult<Self> {
+    async fn with_default<C: ConnectionTrait>(req: ReqLoraNode, conn: &C) -> ApiResult<Self> {
         let (rx2_freq, rx2_dr) = match req.region {
-            LoRaRegion::EU868 => {
-                (8695250, 0_i16)
-            }
-            LoRaRegion::US915 => {
-                (9233000, 8)
-            }
-            LoRaRegion::CN779 => {
-                (7860000, 0)
-            }
-            LoRaRegion::EU433 => {
-                (4346650, 0)
-            }
-            LoRaRegion::AU915 => {
-                (9233000, 8)
-            }
-            LoRaRegion::CN470 => {
-                (5053000, 0)
-            }
-            LoRaRegion::AS923_1 => {
-                (9232000, 2)
-            }
-            LoRaRegion::AS923_2 => {
-                (9232000, 2)
-            }
-            LoRaRegion::AS923_3 => {
-                (9232000, 2)
-            }
-            LoRaRegion::KR920 => {
-                (9219000, 0)
-            }
-            LoRaRegion::IN865 => {
-                (8665500, 2)
-            }
-            LoRaRegion::RU864 => {
-                (8691000, 0)
-            }
+            LoRaRegion::EU868 => (8695250, 0_i16),
+            LoRaRegion::US915 => (9233000, 8),
+            LoRaRegion::CN779 => (7860000, 0),
+            LoRaRegion::EU433 => (4346650, 0),
+            LoRaRegion::AU915 => (9233000, 8),
+            LoRaRegion::CN470 => (5053000, 0),
+            LoRaRegion::AS923_1 => (9232000, 2),
+            LoRaRegion::AS923_2 => (9232000, 2),
+            LoRaRegion::AS923_3 => (9232000, 2),
+            LoRaRegion::KR920 => (9219000, 0),
+            LoRaRegion::IN865 => (8665500, 2),
+            LoRaRegion::RU864 => (8691000, 0),
         };
         let eui = req.eui;
-        let (class_b, class_c) = req.extra_parm.map(|e| (e.class_b.unwrap_or(false), e.class_c.unwrap_or(false)))
+        let (class_b, class_c) = req
+            .extra_parm
+            .map(|e| (e.class_b.unwrap_or(false), e.class_c.unwrap_or(false)))
             .unwrap_or((false, false));
-        
+
         let mut this = Self {
             eui,
             name: req.name,
@@ -206,57 +182,61 @@ impl LoraNodeDeviceDefault {
             dutycyle: 30,
             product_type: ProductType::Monitor,
         };
-        
+
         match req.join_type {
             LoRaJoinType::OTAA => {
-                this.otaa(req.join_parameter.app_key.as_ref(), req.join_parameter.app_eui.as_ref(), req.join_parameter.dev_eui.as_ref(), conn).await?;
+                this.otaa(
+                    req.join_parameter.app_key.as_ref(),
+                    req.join_parameter.app_eui.as_ref(),
+                    req.join_parameter.dev_eui.as_ref(),
+                    conn,
+                )
+                .await?;
                 this.dev_addr = LoRaNodeService::create_addr(conn).await?;
             }
             LoRaJoinType::ABP => {
-                this.abp(req.join_parameter.app_skey.as_ref(), req.join_parameter.nwk_skey.as_ref(), req.join_parameter.dev_addr.as_ref(), conn).await?;
+                this.abp(
+                    req.join_parameter.app_skey.as_ref(),
+                    req.join_parameter.nwk_skey.as_ref(),
+                    req.join_parameter.dev_addr.as_ref(),
+                    conn,
+                )
+                .await?;
                 this.dev_eui = eui;
             }
         }
-        
+
         Ok(this)
     }
 
-    async fn abp<C: ConnectionTrait>(&mut self, 
-                 app_skey: Option<&String>, 
-                 nwk_skey: Option<&String>, 
-                 dev_addr: Option<&String>, 
-                 conn: &C
+    async fn abp<C: ConnectionTrait>(
+        &mut self,
+        app_skey: Option<&String>,
+        nwk_skey: Option<&String>,
+        dev_addr: Option<&String>,
+        conn: &C,
     ) -> ApiResult {
-        let app_skey = app_skey.ok_or(ApiError::User(
-            tt!("messages.device.lora.app_skey_missing")
-        ))?;
-        let nwk_skey = nwk_skey.ok_or(ApiError::User(
-            tt!("messages.device.lora.nwk_skey_missing")
-        ))?;
-        let dev_addr = dev_addr.ok_or(ApiError::User(
-            tt!("messages.device.lora.dev_addr_missing")
-        ))?;
+        let app_skey =
+            app_skey.ok_or(ApiError::User(tt!("messages.device.lora.app_skey_missing")))?;
+        let nwk_skey =
+            nwk_skey.ok_or(ApiError::User(tt!("messages.device.lora.nwk_skey_missing")))?;
+        let dev_addr =
+            dev_addr.ok_or(ApiError::User(tt!("messages.device.lora.dev_addr_missing")))?;
 
         if app_skey.len() != 32 || !Checker::hex(app_skey) {
-            return Err(ApiError::User(
-                tt!("messages.device.lora.app_skey")
-            ));
+            return Err(ApiError::User(tt!("messages.device.lora.app_skey")));
         }
         if nwk_skey.len() != 32 || !Checker::hex(nwk_skey) {
-            return Err(ApiError::User(
-                tt!("messages.device.lora.nwk_skey")
-            ));
+            return Err(ApiError::User(tt!("messages.device.lora.nwk_skey")));
         }
         if dev_addr.len() != 8 || !Checker::hex(dev_addr) {
-            return Err(ApiError::User(
-                tt!("messages.device.lora.dev_addr")
-            ));
+            return Err(ApiError::User(tt!("messages.device.lora.dev_addr")));
         }
 
         let app_skey = app_skey.to_uppercase();
         let nwk_skey = nwk_skey.to_uppercase();
         let dev_addr = dev_addr.to_uppercase();
-        
+
         let predefine = DeviceQueryClient::query_eui(dev_addr.as_str()).await?;
         if let Some(predefine) = predefine {
             return match predefine.parameter {
@@ -264,114 +244,86 @@ impl LoraNodeDeviceDefault {
                     if predefine_node.join_parameter.app_skey.as_str() != app_skey.as_str()
                         || predefine_node.join_parameter.nwk_skey.as_str() != nwk_skey.as_str()
                     {
-                        return Err(ApiError::User(
-                            tt!("messages.device.lora.device_already")
-                        ));
+                        return Err(ApiError::User(tt!("messages.device.lora.device_already")));
                     }
                     self.fill_predefine(predefine_node);
                     Ok(())
                 }
                 DeviceParameter::Gate(_) => {
-                    Err(ApiError::User(
-                        tt!("messages.device.lora.dev_eui_match")
-                    ))
+                    Err(ApiError::User(tt!("messages.device.lora.dev_eui_match")))
                 }
-            }
+            };
         }
 
-        self.app_skey = app_skey.parse()
-            .map_err(|_| ApiError::User(
-                tt!("messages.device.lora.app_key")
-            ))?;
+        self.app_skey =
+            app_skey.parse().map_err(|_| ApiError::User(tt!("messages.device.lora.app_key")))?;
 
-        self.nwk_skey  = nwk_skey.parse()
-            .map_err(|_| ApiError::User(
-                tt!("messages.device.lora.nwk_skey")
-            ))?;
-        self.dev_addr = dev_addr.parse()
-            .map_err(|_| ApiError::User(
-                tt!("messages.device.lora.dev_addr")
-            ))?;
+        self.nwk_skey =
+            nwk_skey.parse().map_err(|_| ApiError::User(tt!("messages.device.lora.nwk_skey")))?;
+        self.dev_addr =
+            dev_addr.parse().map_err(|_| ApiError::User(tt!("messages.device.lora.dev_addr")))?;
         Ok(())
     }
     fn fill_predefine(&mut self, define: LoRaNode) {
         self.join_type = define.join_type;
         self.blue_name = define.blue_name;
-        
+
         match define.join_parameter.nwk_skey.as_str().parse() {
             Ok(o) => {
                 self.nwk_skey = o;
-            },
+            }
             Err(e) => {
                 let user = get_current_user();
-                warn!(
-                    user=user.id.to_string(),
-                    "nwk_skey {}", e
-                );
+                warn!(user = user.id.to_string(), "nwk_skey {}", e);
             }
         }
 
         match define.join_parameter.app_skey.as_str().parse() {
             Ok(o) => {
                 self.app_skey = o;
-            },
+            }
             Err(e) => {
                 let user = get_current_user();
-                warn!(
-                    user=user.id.to_string(),
-                    "app_skey {}", e
-                );
+                warn!(user = user.id.to_string(), "app_skey {}", e);
             }
         }
 
         match define.join_parameter.dev_addr.as_str().parse() {
             Ok(o) => {
                 self.dev_addr = o;
-            },
+            }
             Err(e) => {
                 let user = get_current_user();
-                warn!(
-                    user=user.id.to_string(),
-                    "dev_addr {}", e
-                );
+                warn!(user = user.id.to_string(), "dev_addr {}", e);
             }
         }
 
         match define.join_parameter.app_key.as_str().parse() {
             Ok(o) => {
                 self.app_key = o;
-            },
+            }
             Err(e) => {
                 let user = get_current_user();
-                warn!(
-                    user=user.id.to_string(),
-                    "app_key {}", e
-                );
+                warn!(user = user.id.to_string(), "app_key {}", e);
             }
         }
         match define.join_parameter.dev_eui.as_str().parse() {
             Ok(o) => {
                 self.dev_eui = o;
-            },
+            }
             Err(e) => {
                 let user = get_current_user();
-                warn!(
-                    user=user.id.to_string(),
-                    "dev_eui {}", e
-                );
+                warn!(user = user.id.to_string(), "dev_eui {}", e);
             }
         }
-        
+
         match define.join_parameter.app_eui.as_str().parse() {
             Ok(o) => {
                 self.app_eui = o;
-            },
+            }
             Err(e) => {
                 let user = get_current_user();
-                warn!(
-                    user=user.id.to_string(),
-                    "app_eui {}", e
-                );
+                warn!(user = user.id.to_string(), "app_eui {}", e);
             }
         }
 
@@ -389,64 +341,49 @@ impl LoraNodeDeviceDefault {
 
     async fn check_dev_eui(eui: &str, app_key: Option<&str>) -> ApiResult<Eui> {
         if eui.len() != 16 || !Checker::hex(eui) {
-            return Err(ApiError::User(
-                tt!("messages.device.lora.dev_eui")
-            ));
+            return Err(ApiError::User(tt!("messages.device.lora.dev_eui")));
         }
-        let dev_eui: Eui = eui.parse()
-            .map_err(|_| ApiError::User(
-                tt!("messages.device.lora.dev_eui")
-            ))?;
+        let dev_eui: Eui =
+            eui.parse().map_err(|_| ApiError::User(tt!("messages.device.lora.dev_eui")))?;
         let predefine = DeviceQueryClient::query_eui(eui).await?;
         if let Some(predefine) = predefine {
             return match predefine.parameter {
                 DeviceParameter::Device(predefine_node) => {
                     if let Some(app_key) = app_key {
-                        if predefine_node.join_parameter.app_key.as_str() == app_key
-                        {
+                        if predefine_node.join_parameter.app_key.as_str() == app_key {
                             return Ok(dev_eui);
                         }
                     }
-                    return Err(ApiError::User(
-                        tt!("messages.device.lora.device_already")
-                    ));
+                    return Err(ApiError::User(tt!("messages.device.lora.device_already")));
                 }
                 DeviceParameter::Gate(_) => {
-                    Err(ApiError::User(
-                        tt!("messages.device.lora.dev_eui_match")
-                    ))
+                    Err(ApiError::User(tt!("messages.device.lora.dev_eui_match")))
                 }
-            }
+            };
         }
         Ok(dev_eui)
     }
-    
-    async fn otaa<C: ConnectionTrait>(&mut self, app_key: Option<&String>, app_eui: Option<&String>, dev_eui: Option<&String>, conn: &C) -> ApiResult {
-        let app_key = app_key.ok_or(ApiError::User(
-            tt!("messages.device.lora.app_key_missing")
-        ))?;
-        let app_eui = app_eui.ok_or(ApiError::User(
-            tt!("messages.device.lora.app_eui_missing")
-        ))?;
-        let dev_eui = dev_eui.ok_or(ApiError::User(
-            tt!("messages.device.lora.dev_eui_missing")
-        ))?;
+
+    async fn otaa<C: ConnectionTrait>(
+        &mut self,
+        app_key: Option<&String>,
+        app_eui: Option<&String>,
+        dev_eui: Option<&String>,
+        conn: &C,
+    ) -> ApiResult {
+        let app_key = app_key.ok_or(ApiError::User(tt!("messages.device.lora.app_key_missing")))?;
+        let app_eui = app_eui.ok_or(ApiError::User(tt!("messages.device.lora.app_eui_missing")))?;
+        let dev_eui = dev_eui.ok_or(ApiError::User(tt!("messages.device.lora.dev_eui_missing")))?;
 
         if app_key.len() != 32 || !Checker::hex(app_key) {
-            return Err(ApiError::User(
-                tt!("messages.device.lora.app_key")
-            ));
+            return Err(ApiError::User(tt!("messages.device.lora.app_key")));
         }
 
         if app_eui.len() != 16 || !Checker::hex(app_eui) {
-            return Err(ApiError::User(
-                tt!("messages.device.lora.app_eui")
-            ));
+            return Err(ApiError::User(tt!("messages.device.lora.app_eui")));
         }
         if dev_eui.len() != 16 || !Checker::hex(dev_eui) {
-            return Err(ApiError::User(
-                tt!("messages.device.lora.dev_eui")
-            ));
+            return Err(ApiError::User(tt!("messages.device.lora.dev_eui")));
         }
 
         let app_key = app_key.to_uppercase();
@@ -460,33 +397,23 @@ impl LoraNodeDeviceDefault {
                     if predefine_node.join_parameter.app_key.as_str() != app_key.as_str()
                         || predefine_node.join_parameter.app_eui.as_str() != app_eui.as_str()
                     {
-                        return Err(ApiError::User(
-                            tt!("messages.device.lora.device_already")
-                        ));
+                        return Err(ApiError::User(tt!("messages.device.lora.device_already")));
                     }
                     self.fill_predefine(predefine_node);
                     Ok(())
                 }
                 DeviceParameter::Gate(_) => {
-                    Err(ApiError::User(
-                        tt!("messages.device.lora.dev_eui_match")
-                    ))
+                    Err(ApiError::User(tt!("messages.device.lora.dev_eui_match")))
                 }
-            }
+            };
         }
-        self.dev_eui = dev_eui.parse()
-            .map_err(|_| ApiError::User(
-                tt!("messages.device.lora.dev_eui")
-            ))?;
+        self.dev_eui =
+            dev_eui.parse().map_err(|_| ApiError::User(tt!("messages.device.lora.dev_eui")))?;
 
-        self.app_eui = app_eui.parse()
-            .map_err(|_| ApiError::User(
-                tt!("messages.device.lora.app_eui")
-            ))?;
-        self.app_key = app_key.parse()
-            .map_err(|_| ApiError::User(
-                tt!("messages.device.lora.app_key")
-            ))?;
+        self.app_eui =
+            app_eui.parse().map_err(|_| ApiError::User(tt!("messages.device.lora.app_eui")))?;
+        self.app_key =
+            app_key.parse().map_err(|_| ApiError::User(tt!("messages.device.lora.app_key")))?;
         Ok(())
     }
 }
@@ -502,7 +429,7 @@ pub(crate) struct ReqLoraNode {
     pub(crate) scan_eui: Option<String>,
     pub(crate) blue_name: Option<String>,
     pub(crate) blue_parm: Option<crate::service::device::device::BluetoothNode>,
-    pub(crate) extra_parm: Option<ExtraParm>
+    pub(crate) extra_parm: Option<ExtraParm>,
 }
 
 #[derive(Deserialize)]
@@ -545,21 +472,23 @@ pub(crate) struct BluetoothNode {
     #[serde(rename = "RX2FREQ")]
     rx2_freq: i32,
     #[serde(rename = "Firmware")]
-    firmware: String
+    firmware: String,
 }
 
 impl LoRaNodeService {
-
     pub(crate) async fn create_addr<C: ConnectionTrait>(conn: &C) -> ApiResult<LoRaAddr> {
         loop {
             let addr = LoRaAddr::random();
             if !Self::valid_addr(addr, conn).await? {
-                return Ok(addr)
+                return Ok(addr);
             }
         }
     }
-    
-    pub(crate) async fn valid_addr<C: ConnectionTrait>(dev_addr: LoRaAddr, conn: &C) -> ApiResult<bool> {
+
+    pub(crate) async fn valid_addr<C: ConnectionTrait>(
+        dev_addr: LoRaAddr,
+        conn: &C,
+    ) -> ApiResult<bool> {
         let addr = dev_addr.to_string();
         let addr = addr.as_str();
         let res = DeviceLoraNodeEntity::find()
@@ -568,9 +497,7 @@ impl LoRaNodeService {
             .await?;
 
         if res.is_some() {
-            return Err(ApiError::User(
-                tt!("messages.device.lora.dev_addr_already", addr = addr)
-            ))
+            return Err(ApiError::User(tt!("messages.device.lora.dev_addr_already", addr = addr)));
         }
         let r = DeviceQueryClient::query_eui(addr).await?;
         Ok(r.is_some())
@@ -580,11 +507,14 @@ impl LoRaNodeService {
         loop {
             let eui = Eui::random();
             if !Self::valid_dev_eui(eui, conn).await? {
-                return Ok(eui)
+                return Ok(eui);
             }
         }
     }
-    pub(crate) async fn valid_dev_eui<C: ConnectionTrait>(dev_eui: Eui, conn: &C) -> ApiResult<bool> {
+    pub(crate) async fn valid_dev_eui<C: ConnectionTrait>(
+        dev_eui: Eui,
+        conn: &C,
+    ) -> ApiResult<bool> {
         let eui = dev_eui.to_string();
         let eui = eui.as_str();
         let res = DeviceLoraNodeEntity::find()
@@ -593,9 +523,7 @@ impl LoRaNodeService {
             .await?;
 
         if res.is_some() {
-            return Err(ApiError::User(
-                tt!("messages.device.lora.dev_addr_already", addr = eui)
-            ))
+            return Err(ApiError::User(tt!("messages.device.lora.dev_addr_already", addr = eui)));
         }
         let r = DeviceQueryClient::query_eui(eui).await?;
         Ok(r.is_some())
@@ -604,7 +532,7 @@ impl LoRaNodeService {
         req: ReqLoraNode,
         user: &CurrentUser,
         redis: &mut R,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<Id> {
         match req.device {
             None => {
@@ -619,19 +547,19 @@ impl LoRaNodeService {
                     .one(conn)
                     .await?;
                 match node {
-                    None => {
-                        Err(ApiError::User(
-                            tt!("messages.device.common.not_found_device", device_id=device_id)
-                        ))
-                    }
+                    None => Err(ApiError::User(tt!(
+                        "messages.device.common.not_found_device",
+                        device_id = device_id
+                    ))),
                     Some(mut node) => {
                         if let Some(blue) = req.blue_parm {
                             let otaa = blue.join_type.or(blue.jion_type).ok_or(ApiError::User(
-                                tt!("messages.device.lora.join_type_missing")
+                                tt!("messages.device.lora.join_type_missing"),
                             ))? == 1;
-                            
-                            let join_type = if otaa { LoRaJoinType::OTAA } else { LoRaJoinType::ABP };
-                            
+
+                            let join_type =
+                                if otaa { LoRaJoinType::OTAA } else { LoRaJoinType::ABP };
+
                             let mut active_model = node.clone().into_active_model();
                             if node.dev_eui != blue.dev_eui {
                                 let other = DeviceLoraNodeEntity::find()
@@ -639,15 +567,16 @@ impl LoRaNodeService {
                                     .one(conn)
                                     .await?;
                                 if other.is_some() {
-                                    return Err(ApiError::User(
-                                        tt!("messages.device.lora.dev_eui_already" , eui = blue.dev_eui)
-                                    ));
+                                    return Err(ApiError::User(tt!(
+                                        "messages.device.lora.dev_eui_already",
+                                        eui = blue.dev_eui
+                                    )));
                                 }
                                 Self::valid_dev_eui(blue.dev_eui, conn).await?;
                                 active_model.dev_eui = ActiveValue::Set(blue.dev_eui);
                             }
 
-                            if node.app_eui != blue.app_eui { 
+                            if node.app_eui != blue.app_eui {
                                 active_model.app_eui = ActiveValue::Set(blue.app_eui);
                             }
                             if node.app_key != blue.app_key {
@@ -660,9 +589,10 @@ impl LoRaNodeService {
                                     .one(conn)
                                     .await?;
                                 if other.is_some() {
-                                    return Err(ApiError::User(
-                                        tt!("messages.device.lora.dev_addr_already" , addr = blue.dev_addr)
-                                    ));
+                                    return Err(ApiError::User(tt!(
+                                        "messages.device.lora.dev_addr_already",
+                                        addr = blue.dev_addr
+                                    )));
                                 }
                                 Self::valid_addr(blue.dev_addr, conn).await?;
                                 active_model.dev_addr = ActiveValue::Set(blue.dev_addr);
@@ -687,13 +617,12 @@ impl LoRaNodeService {
         }
     }
 
-
     #[instrument(skip_all)]
     pub(crate) async fn create_node<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
         req: ReqLoraNode,
         user: &CurrentUser,
         redis: &mut R,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<Id> {
         if req.blue_parm.is_some() {
             return Self::update_blue(req, user, redis, conn).await;
@@ -703,55 +632,60 @@ impl LoRaNodeService {
     }
     #[instrument(skip_all)]
     async fn insert_node<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
-        node: LoraNodeDeviceDefault, 
+        node: LoraNodeDeviceDefault,
         user: &CurrentUser,
         redis: &mut R,
-        conn: &C
+        conn: &C,
     ) -> ApiResult<Id> {
         match node.join_type {
-            LoRaJoinType::OTAA=> {
+            LoRaJoinType::OTAA => {
                 if NodeInfo::check_eui(node.dev_eui, redis).await? {
-                    return Err(ApiError::User(
-                        tt!("messages.device.lora.dev_eui_already", eui= node.dev_eui)
-                    ))
+                    return Err(ApiError::User(tt!(
+                        "messages.device.lora.dev_eui_already",
+                        eui = node.dev_eui
+                    )));
                 }
                 let res = DeviceLoraNodeEntity::find()
                     .filter(DeviceLoraNodeColumn::DevEui.eq(node.dev_eui))
                     .one(conn)
                     .await?;
                 if res.is_some() {
-                    return Err(ApiError::User(
-                        tt!("messages.device.lora.dev_eui_already", eui= node.dev_eui)
-                    ))
+                    return Err(ApiError::User(tt!(
+                        "messages.device.lora.dev_eui_already",
+                        eui = node.dev_eui
+                    )));
                 }
             }
             LoRaJoinType::ABP => {
                 if NodeInfo::check_addr(node.dev_addr, redis).await? {
-                    return Err(ApiError::User(
-                        tt!("messages.device.lora.dev_addr_already", addr = node.dev_addr)
-                    ))
+                    return Err(ApiError::User(tt!(
+                        "messages.device.lora.dev_addr_already",
+                        addr = node.dev_addr
+                    )));
                 }
                 let res = DeviceLoraNodeEntity::find()
                     .filter(DeviceLoraNodeColumn::DevAddr.eq(node.dev_addr))
                     .one(conn)
                     .await?;
                 if res.is_some() {
-                    return Err(ApiError::User(
-                        tt!("messages.device.lora.dev_addr_already", addr = node.dev_addr)
-                    ))
+                    return Err(ApiError::User(tt!(
+                        "messages.device.lora.dev_addr_already",
+                        addr = node.dev_addr
+                    )));
                 }
             }
         }
-        
+
         let device = DeviceService::register_device(
             user,
             node.eui,
             node.name.as_str(),
             node.description.as_str(),
             DeviceType::LoRaNode,
-            conn
-        ).await?;
-        
+            conn,
+        )
+        .await?;
+
         let model = DeviceLoraNodeActiveModel {
             id: Default::default(),
             device_id: ActiveValue::Set(device.id),
@@ -791,16 +725,20 @@ impl LoRaNodeService {
         };
         let model = model.insert(conn).await?;
         if let Some(blue_name) = node.blue_name {
-            DeviceService::new_func_blue(device.id, blue_name.as_str(), conn ).await?;
+            DeviceService::new_func_blue(device.id, blue_name.as_str(), conn).await?;
         }
         let device_id = device.id;
         NodeInfo::register_to_redis(model, device, redis).await?;
- 
+
         Ok(device_id)
     }
 
     #[instrument(skip_all)]
-    pub(crate) async fn delete_node<C: ConnectionTrait, R: redis::aio::ConnectionLike>(device_id: Id, redis: &mut R, conn: &C) -> ApiResult {
+    pub(crate) async fn delete_node<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
+        device_id: Id,
+        redis: &mut R,
+        conn: &C,
+    ) -> ApiResult {
         let node = DeviceLoraNodeEntity::find()
             .filter(DeviceLoraNodeColumn::DeviceId.eq(device_id))
             .one(conn)
@@ -812,10 +750,7 @@ impl LoRaNodeService {
                 Ok(())
             }
             None => {
-                Err(ApiError::Device {
-                    device_id,
-                    msg: tt!("messages.device.lora.device_missing")
-                })
+                Err(ApiError::Device { device_id, msg: tt!("messages.device.lora.device_missing") })
             }
         }
     }
@@ -829,7 +764,10 @@ impl LoRaNodeService {
             .filter(DeviceLoraNodeColumn::DeviceId.eq(device_id))
             .one(conn)
             .await?
-            .ok_or(ApiError::Device{ device_id, msg: tt!("messages.device.common.device_missing", device_id=device_id) })
+            .ok_or(ApiError::Device {
+                device_id,
+                msg: tt!("messages.device.common.device_missing", device_id = device_id),
+            })
     }
 
     #[instrument(skip(conn))]
@@ -847,5 +785,3 @@ impl LoRaNodeService {
             .map_err(Into::into)
     }
 }
-
-

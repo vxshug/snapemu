@@ -1,11 +1,10 @@
-
-use generic_array::GenericArray;
+use common_define::db::Key;
 use generic_array::typenum::U16;
+use generic_array::GenericArray;
 use lorawan::creator::JoinAcceptCreator;
 use lorawan::default_crypto::DefaultFactory;
 use lorawan::keys::{self, CryptoFactory, Encrypter};
 use lorawan::maccommands::Frequency;
-use common_define::db::Key;
 
 use crate::man::data::DataError;
 
@@ -82,10 +81,7 @@ impl NodeKeys {
         enc.encrypt_block(k1);
         enc.encrypt_block(k2);
 
-        Self {
-            nwk_skey: Key::new(nwk_skey),
-            app_skey: Key::new(app_skey),
-        }
+        Self { nwk_skey: Key::new(nwk_skey), app_skey: Key::new(app_skey) }
     }
 
     fn fill_args(s: &mut [u8], join_nonce: u32, net_id: u32, dev_nonce: u16) {
@@ -106,6 +102,4 @@ impl NodeKeys {
     }
 }
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}

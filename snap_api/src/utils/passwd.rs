@@ -31,8 +31,7 @@ impl PasswordHash {
         let count = 1 << 13;
         for _ in 0..count {
             buffer[0..16].copy_from_slice(hash.as_slice());
-            buffer[16..16 + len]
-                .copy_from_slice(password.as_bytes());
+            buffer[16..16 + len].copy_from_slice(password.as_bytes());
             hash = md5::compute(&buffer[0..16 + len]);
         }
         hash
@@ -41,9 +40,7 @@ impl PasswordHash {
 
 pub(crate) struct Rsa;
 
-impl Rsa {
-
-}
+impl Rsa {}
 
 #[cfg(test)]
 mod tests {
@@ -51,14 +48,8 @@ mod tests {
 
     #[test]
     fn test_gen_password() {
-        assert_ne!(
-            PasswordHash::gen_password("test"),
-            PasswordHash::gen_password("test")
-        );
-        println!("{}",PasswordHash::gen_password("test123"));
-        assert!(PasswordHash::check_password(
-            "123",
-            "$P$B1f90657dW.epYijNBhu1JPuo.mD.c1"
-        ))
+        assert_ne!(PasswordHash::gen_password("test"), PasswordHash::gen_password("test"));
+        println!("{}", PasswordHash::gen_password("test123"));
+        assert!(PasswordHash::check_password("123", "$P$B1f90657dW.epYijNBhu1JPuo.mD.c1"))
     }
 }

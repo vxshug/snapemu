@@ -36,7 +36,6 @@ struct DataMap {
     map: Vec<DataMapItem>,
 }
 
-
 /// Get data name mapping
 #[utoipa::path(
     method(get),
@@ -74,11 +73,7 @@ async fn get_map(
                     data_type: it.t,
                 })
                 .collect();
-            Ok(Some(DataMap {
-                name: map.name,
-                map: v,
-            })
-            .into())
+            Ok(Some(DataMap { name: map.name, map: v }).into())
         }
         None => Ok(None.into()),
     }

@@ -1,10 +1,10 @@
-use serde::Deserialize;
 use crate::api::SnJson;
 use crate::error::ApiResponseResult;
 use crate::man::EmailManager;
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub struct Message  {
+pub struct Message {
     name: String,
     email: String,
     message: String,
