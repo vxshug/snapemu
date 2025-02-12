@@ -37,6 +37,7 @@ impl Default for AppConfig {
                 cors: false,
                 host: "0.0.0.0".to_string(),
                 port: 8080,
+                eui_mask: _default_eui_mask(),
             },
             device_data_timeout_day: None,
         }
@@ -106,6 +107,8 @@ pub struct ApiConfig {
     pub host: String,
     #[serde(default = "_default_port")]
     pub port: u16,
+    #[serde(default = "_default_eui_mask")]
+    pub eui_mask: u64,
 }
 
 fn _default_host() -> String {
@@ -114,6 +117,10 @@ fn _default_host() -> String {
 
 fn _default_port() -> u16 {
     8080
+}
+
+fn _default_eui_mask() -> u64 {
+    u64::max_value()
 }
 
 static CONFIG: Lazy<ArcSwap<AppConfig>> =

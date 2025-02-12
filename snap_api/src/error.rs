@@ -168,7 +168,7 @@ pub struct ApiResponse<T = ()> {
     pub(crate) data: Option<T>,
 }
 
-trait IntoAppString {
+pub(crate) trait IntoAppString {
     fn into_app_string(self) -> Option<AppString>;
 }
 

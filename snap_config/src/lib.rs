@@ -171,7 +171,7 @@ mod log_level {
 
     impl Default for LogLevelConfig {
         fn default() -> Self {
-            Self::DEBUG
+            Self::INFO
         }
     }
 

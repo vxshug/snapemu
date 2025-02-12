@@ -28,7 +28,7 @@ impl Base64 {
         let len = source.len();
         let mut v: Vec<u8> = Vec::with_capacity(source.len() * 4);
         let mut count = 0;
-        let mut value: u32 = source[count] as u32;
+        let mut value: u32;
         while count < len {
             value = source[count] as u32;
             count += 1;

@@ -115,7 +115,7 @@ impl NodeProcessor {
         let resp = serde_json::to_string(&resp)?;
         let now = Timestamp::now();
         SnapDeviceInfo::update_active_time(eui, now, &mut self.redis).await?;
-        self.redis.publish(common_define::event::DeviceEvent::KAFKA_TOPIC, resp).await?;
+        () = self.redis.publish(common_define::event::DeviceEvent::KAFKA_TOPIC, resp).await?;
 
         if ack {
             match DownloadData::new_with_eui(eui)
@@ -164,7 +164,7 @@ impl NodeProcessor {
                         let data: DbDecodeData = decodedata.into();
                         let now = Timestamp::now();
                         let last_data = LastDecodeData::new(data.0.clone(), now);
-                        self.redis.set(last_key, last_data).await?;
+                        () = self.redis.set(last_key, last_data).await?;
                         let data = DeviceDataActiveModel {
                             id: Default::default(),
                             device_id: ActiveValue::Set(snap_device.id),
@@ -181,7 +181,7 @@ impl NodeProcessor {
                 let last_data = LastDecodeData::new(decoded_data.data.clone(), now);
                 info!("decode {:?}", decoded_data);
                 let last_key = last_device_data_key(snap_device.id);
-                self.redis.set(last_key, last_data).await?;
+                () = self.redis.set(last_key, last_data).await?;
                 let bytes_b64 = payload.encode_base64();
                 let data = DeviceDataActiveModel {
                     id: Default::default(),

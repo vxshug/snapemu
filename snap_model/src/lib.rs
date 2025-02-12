@@ -135,8 +135,11 @@ impl ModelMap {
 pub fn load_model_file(path: Option<&str>) -> ModelMap {
     match path {
         Some(path) => {
-            let s = fs::read_to_string(path).unwrap();
-            let root: ModelRoot = serde_yaml::from_str(s.as_str()).unwrap();
+            let config = config::Config::builder()
+                .add_source(config::File::with_name(path))
+                .build()
+                .unwrap();
+            let root: ModelRoot = config.try_deserialize().unwrap();
             ModelMap::new_with_root(root)
         }
         None => ModelMap::default(),

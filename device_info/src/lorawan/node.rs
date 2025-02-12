@@ -5,7 +5,6 @@ use common_define::product::ProductType;
 use common_define::time::Timestamp;
 use common_define::Id;
 use hash_name::{HashNames, RedisOps};
-use redis::AsyncCommands;
 use serde::Serialize;
 use tracing::{instrument, warn};
 

@@ -40,7 +40,7 @@ impl SnapDeviceInfo {
     ) -> redis::RedisResult<()> {
         let k = Self::eui_key(eui);
         if redis::Cmd::exists(&k).query_async(conn).await? {
-            redis::cmd("HSET").arg(&k).arg(key).arg(v).query_async(conn).await?;
+            () = redis::cmd("HSET").arg(&k).arg(key).arg(v).query_async(conn).await?;
         }
         Ok(())
     }

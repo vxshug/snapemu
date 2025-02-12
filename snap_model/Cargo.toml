@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 common_define.workspace = true
 serde = { workspace = true, features = ["derive"] }
-serde_yaml.workspace = true
 anyhow.workspace = true
+config.workspace = true
