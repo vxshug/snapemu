@@ -1,22 +1,20 @@
+use crate::api::restful::admin::JwtClaims;
+use crate::api::SnJson;
+use crate::error::{ApiError, ApiResponseResult};
+use crate::man::UserManager;
+use crate::AppState;
 use axum::extract::State;
-use axum::{Extension, Router};
 use axum::routing::post;
+use common_define::db::{SnapAdminColumn, SnapAdminEntity, UsersColumn, UsersEntity};
+use common_define::time::Timestamp;
 use hmac::{Hmac, Mac};
 use jwt::SignWithKey;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use common_define::db::{SnapAdminColumn, SnapAdminEntity, UsersColumn, UsersEntity};
-use common_define::time::Timestamp;
-use crate::api::restful::admin::{JwtClaims};
-use crate::api::SnJson;
-use crate::AppState;
-use crate::error::{ApiError, ApiResponse, ApiResponseResult};
-use crate::man::UserManager;
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new()
-        .route("/", post(login))
+    OpenApiRouter::new().route("/", post(login))
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]
@@ -33,19 +31,13 @@ struct JwtBody {
     token: String,
 }
 
-use utoipa::OpenApi;
-use utoipa_axum::router::OpenApiRouter;
 use crate::load::load_config;
 use crate::utils::PasswordHash;
+use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 
 #[derive(OpenApi)]
-#[openapi(
-    paths(login,),
-    components(schemas(
-        AdminLoginBody,
-        JwtBody
-    ))
-)]
+#[openapi(paths(login,), components(schemas(AdminLoginBody, JwtBody)))]
 pub struct UserApi;
 
 ///
@@ -65,7 +57,8 @@ async fn login(
     let user_manager = UserManager::load_from_config()?;
     let auth_user = match user_manager {
         Some(user_manager) => {
-            let auth_user = user_manager.password_login(user.username.as_str(), user.password.as_str()).await?;
+            let auth_user =
+                user_manager.password_login(user.username.as_str(), user.password.as_str()).await?;
             SnapAdminEntity::find()
                 .filter(SnapAdminColumn::UId.eq(auth_user.id))
                 .one(&state.db)
@@ -96,11 +89,8 @@ async fn login(
         name: user.username,
     };
     let config = load_config();
-    let jwt_key: Hmac<Sha256> = Hmac::new_from_slice(config.jwt_key.as_bytes()).map_err(|err| {
-        ApiError::User("jwt_key length is error".into())
-    })?;
+    let jwt_key: Hmac<Sha256> = Hmac::new_from_slice(config.jwt_key.as_bytes())
+        .map_err(|err| ApiError::User("jwt_key length is error".into()))?;
     let token_str = claims.sign_with_key(&jwt_key).unwrap();
-    Ok(JwtBody {
-        token: token_str
-    }.into())
+    Ok(JwtBody { token: token_str }.into())
 }

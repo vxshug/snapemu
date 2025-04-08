@@ -1,7 +1,7 @@
+use quote::{format_ident, quote};
 use std::collections::HashMap;
 use std::fs;
-use quote::{format_ident, quote};
-use syn::{LitStr, parse_macro_input};
+use syn::{parse_macro_input, LitStr};
 
 struct Args {
     locales_path: String,
@@ -20,18 +20,14 @@ impl syn::parse::Parse for Args {
     fn parse(input: syn::parse::ParseStream) -> syn::parse::Result<Self> {
         let lookahead = input.lookahead1();
 
-        let mut result = Self {
-            locales_path: String::from("locales"),
-        };
+        let mut result = Self { locales_path: String::from("locales") };
 
         if lookahead.peek(LitStr) {
             result.consume_path(input)?;
-
         }
         Ok(result)
     }
 }
-
 
 #[proc_macro]
 pub fn i18n(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -70,7 +66,8 @@ fn load_locales(path: &std::path::PathBuf) -> anyhow::Result<Vec<serde_json::Val
         }
         if entry_path.is_file() {
             let path = entry_path.display().to_string();
-            let (_, ext) = path.rsplit_once(".")
+            let (_, ext) = path
+                .rsplit_once(".")
                 .ok_or(anyhow::Error::msg("cargo:i18n-error=path not found ext:"))?;
             let content = fs::read_to_string(entry_path.clone())?;
             let result = match ext {
@@ -96,7 +93,10 @@ fn parse_locales(locales: Vec<serde_json::Value>) -> anyhow::Result<HashMap<Stri
     Ok(hash)
 }
 
-fn parse_file_locale(value: serde_json::Value, map: &mut HashMap<String, Vec<String>>) -> anyhow::Result<()> {
+fn parse_file_locale(
+    value: serde_json::Value,
+    map: &mut HashMap<String, Vec<String>>,
+) -> anyhow::Result<()> {
     let mut flat_map = HashMap::new();
     flatten_json(&value, String::new(), &mut flat_map);
     for (key, value) in flat_map {
@@ -121,15 +121,12 @@ fn extract_placeholders(input: &str) -> Vec<String> {
     placeholders
 }
 
-fn flatten_json(value: &serde_json::Value, prefix: String, flat_map: &mut HashMap<String, String>){
+fn flatten_json(value: &serde_json::Value, prefix: String, flat_map: &mut HashMap<String, String>) {
     match value {
         serde_json::Value::Object(map) => {
             for (k, v) in map {
-                let new_prefix = if prefix.is_empty() {
-                    k.clone()
-                } else {
-                    format!("{}.{}", prefix, k)
-                };
+                let new_prefix =
+                    if prefix.is_empty() { k.clone() } else { format!("{}.{}", prefix, k) };
                 flatten_json(v, new_prefix, flat_map);
             }
         }
@@ -153,10 +150,10 @@ fn value_to_string(value: &serde_json::Value) -> String {
 fn generate_code(values: Vec<serde_json::Value>, args: Args) -> proc_macro2::TokenStream {
     let map = parse_locales(values).expect("parse error");
     let path = args.locales_path;
-    let v: Vec<_> = map.into_iter()
+    let v: Vec<_> = map
+        .into_iter()
         .map(|(k, v)| {
-            let v: Vec<_> = v.iter().map(|v| format_ident!("{}", v))
-                .collect();
+            let v: Vec<_> = v.iter().map(|v| format_ident!("{}", v)).collect();
             if v.is_empty() {
                 quote! {
                     (#k) => {
@@ -170,10 +167,8 @@ fn generate_code(values: Vec<serde_json::Value>, args: Args) -> proc_macro2::Tok
                     }
                 }
             }
-
         })
         .collect();
-
 
     quote! {
             rust_i18n::i18n!(#path);

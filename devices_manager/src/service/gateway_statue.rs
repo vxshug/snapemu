@@ -1,8 +1,7 @@
+use crate::DeviceResult;
 use common_define::db::Eui;
 use common_define::lorawan_bridge::RXPK;
 use common_define::time::Timestamp;
-use crate::DeviceResult;
-
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub(crate) struct PushState {
@@ -21,7 +20,7 @@ pub(crate) struct PushState {
 pub(crate) enum GatewayEvent {
     PushData,
     PullData,
-    TXAck
+    TXAck,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]

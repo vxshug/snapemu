@@ -1,5 +1,5 @@
-use axum::{Router, extract::Path};
 use axum::extract::State;
+use axum::{extract::Path, Router};
 use common_define::Id;
 
 use crate::{error::ApiResponseResult, get_current_user, AppState};
@@ -27,14 +27,10 @@ pub(crate) struct GPIOItem {
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 struct IoRequest {
     io: Option<Vec<GPIOItem>>,
-    timer: Option<GPIOTimer>
+    timer: Option<GPIOTimer>,
 }
 
-
-async fn get_io(
-    State(state): State<AppState>,
-    Path(device): Path<Id>
-) -> ApiResponseResult {
+async fn get_io(State(state): State<AppState>, Path(device): Path<Id>) -> ApiResponseResult {
     // let user = get_current_user();
     // DeviceService::query_one(user.id, device, &state.db).await?;
     // let ios = DeviceService::query_io_all(device, &state.db).await?;
@@ -45,15 +41,12 @@ async fn get_io(
     //     value: item.value,
     //     update_time: item.update_time,
     // }).collect();
-    Ok( ().into())
+    Ok(().into())
 }
 
-async fn get_timer(
-    State(state): State<AppState>,
-    Path(device): Path<Id>
-) -> ApiResponseResult {
+async fn get_timer(State(state): State<AppState>, Path(device): Path<Id>) -> ApiResponseResult {
     let user = get_current_user();
-    
+
     // DeviceService::query_one(user.id, device, &state.db).await?;
     // let timers = DeviceService::query_timer_all(device, &state.db).await?;
     // let timer: Vec<_> = timers.into_iter().map(|item| DeviceTimerResp {

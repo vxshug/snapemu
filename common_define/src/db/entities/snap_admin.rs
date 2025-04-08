@@ -1,7 +1,7 @@
+use crate::time::Timestamp;
+use crate::Id;
 use sea_orm::entity::prelude::*;
 use uuid::Uuid;
-use crate::Id;
-use crate::time::Timestamp;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "snap_admin")]
@@ -14,8 +14,6 @@ pub struct Model {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-
-}
+pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}

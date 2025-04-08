@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::db::Eui;
 use crate::time::Timestamp;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GatewayEvent {
@@ -12,7 +12,7 @@ pub struct GatewayEvent {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GatewaySource {
-    pub ip: Option<String>
+    pub ip: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -20,7 +20,7 @@ pub struct GatewaySource {
 pub enum GatewayEventType {
     Status(GatewayStatus),
     Join(JoinPayload),
-    Data(DataPayload)
+    Data(DataPayload),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -47,13 +47,11 @@ pub struct GatewayStatus {
     pub txnb: Option<u32>,
 }
 
-
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct JoinPayload {
     pub app_eui: Eui,
     pub dev_eui: Eui,
-    pub dev_nonce: String
+    pub dev_nonce: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -67,5 +65,5 @@ pub struct DataPayload {
     pub frequency: f32,
     pub rssi: i32,
     pub snr: i32,
-    pub channel: i32
+    pub channel: i32,
 }

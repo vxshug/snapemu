@@ -8,9 +8,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new()
-        .routes(routes!(put_top))
-        .routes(routes!(put_group_top))
+    OpenApiRouter::new().routes(routes!(put_top)).routes(routes!(put_group_top))
 }
 
 /// Device top

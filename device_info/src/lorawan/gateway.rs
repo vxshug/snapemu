@@ -1,12 +1,12 @@
-use std::net::SocketAddr;
+use crate::MyOption;
 use common_define::db::Eui;
+use common_define::time::Timestamp;
 use common_define::Id;
 use derive_new::new;
-use serde::{Deserialize, Serialize};
-use tracing::instrument;
-use common_define::time::Timestamp;
 use hash_name::{HashNames, RedisOps};
-use crate::MyOption;
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use tracing::instrument;
 
 #[derive(Debug, Clone, Serialize, Deserialize, RedisOps, new, HashNames)]
 pub struct GatewayInfo {
@@ -15,11 +15,10 @@ pub struct GatewayInfo {
     pub version: u8,
     pub time: Timestamp,
     pub a: Option<Timestamp>,
-    pub down: Option<String>
+    pub down: Option<String>,
 }
 
 impl GatewayInfo {
-
     pub fn eui_key(eui: Eui) -> String {
         format!("info:gateway:{}", eui)
     }

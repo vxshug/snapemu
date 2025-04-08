@@ -1,8 +1,8 @@
+use crate::man::redis_client::RedisClient;
+use crate::DeviceResult;
+use common_define::event::PlatformLog;
 use redis::AsyncCommands;
 use tracing::{error, warn};
-use common_define::event::PlatformLog;
-use crate::DeviceResult;
-use crate::man::redis_client::RedisClient;
 
 pub async fn publish_log(mut rx: tokio::sync::mpsc::Receiver<String>) {
     loop {

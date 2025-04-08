@@ -14,14 +14,13 @@ use std::str::FromStr;
     Eq,
     PartialEq,
     Default,
-Ord, PartialOrd
+    Ord,
+    PartialOrd
 )]
 #[serde(transparent)]
 pub struct Id(pub u64);
 
-impl sea_orm::sea_query::value::with_array::NotU8 for Id {
-
-}
+impl sea_orm::sea_query::value::with_array::NotU8 for Id {}
 impl sea_orm::sea_query::Nullable for Id {
     fn null() -> sea_orm::Value {
         sea_orm::Value::BigInt(None)
@@ -68,7 +67,6 @@ impl sea_orm::TryFromU64 for Id {
         Ok(Self(n))
     }
 }
-
 
 impl Id {
     pub fn new(id: u64) -> Self {
@@ -127,4 +125,3 @@ impl TryFrom<&str> for Id {
         Ok(Self(u64::from_be_bytes(b)))
     }
 }
-

@@ -1,9 +1,9 @@
+use crate::db::DbErr;
+use redis::{FromRedisValue, RedisResult, RedisWrite, ToRedisArgs, Value};
+use serde::de::Error;
+use serde::{Deserializer, Serializer};
 use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
-use redis::{FromRedisValue, RedisResult, RedisWrite, ToRedisArgs, Value};
-use serde::{Deserializer, Serializer};
-use serde::de::Error;
-use crate::db::{DbErr};
 
 #[derive(derive_more::From, Clone, Copy, Hash, Eq, PartialEq, Default, Ord, PartialOrd)]
 pub struct Eui(u64);
@@ -24,14 +24,17 @@ impl sea_orm::TryGetable for Eui {
         res: &sea_orm::QueryResult,
         idx: I,
     ) -> std::result::Result<Self, sea_orm::TryGetError> {
-        <String as sea_orm::TryGetable>::try_get_by(res, idx)
-            .and_then(|v| Eui::try_from(v.as_str()).map_err(|e| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(e.to_string()))))
+        <String as sea_orm::TryGetable>::try_get_by(res, idx).and_then(|v| {
+            Eui::try_from(v.as_str())
+                .map_err(|e| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(e.to_string())))
+        })
     }
 }
 impl sea_orm::sea_query::ValueType for Eui {
     fn try_from(v: sea_orm::Value) -> std::result::Result<Self, sea_orm::sea_query::ValueTypeErr> {
-        <String as sea_orm::sea_query::ValueType>::try_from(v)
-            .and_then(|v| TryFrom::<&str>::try_from(v.as_str()).map_err(|_| sea_orm::sea_query::ValueTypeErr))
+        <String as sea_orm::sea_query::ValueType>::try_from(v).and_then(|v| {
+            TryFrom::<&str>::try_from(v.as_str()).map_err(|_| sea_orm::sea_query::ValueTypeErr)
+        })
     }
     fn type_name() -> std::string::String {
         "Eui".to_owned()
@@ -58,7 +61,7 @@ impl Eui {
     pub fn random() -> Self {
         Self(rand::random())
     }
-    
+
     pub fn to_bytes(&self) -> [u8; 8] {
         self.0.to_le_bytes()
     }
@@ -67,7 +70,7 @@ impl Eui {
     }
     pub fn from_be_bytes(s: &[u8]) -> Option<Self> {
         if s.len() < 8 {
-            return None
+            return None;
         }
         let eui = &s[0..8];
         let mut t = [0; 8];
@@ -75,7 +78,6 @@ impl Eui {
         Some(Self(u64::from_be_bytes(t)))
     }
 }
-
 
 impl From<Eui> for u64 {
     fn from(value: Eui) -> Self {
@@ -90,16 +92,22 @@ impl From<[u8; 8]> for Eui {
 }
 
 impl serde::Serialize for Eui {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let s = self.to_string();
         serializer.serialize_str(&s)
     }
 }
 
 impl<'de> serde::Deserialize<'de> for Eui {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         let s = <&str as serde::Deserialize>::deserialize(deserializer)?;
-        s.parse().map_err(|e: DbErr|Error::custom(e.to_string()))
+        s.parse().map_err(|e: DbErr| Error::custom(e.to_string()))
     }
 }
 
@@ -110,7 +118,10 @@ impl Display for Eui {
 }
 
 impl ToRedisArgs for Eui {
-    fn write_redis_args<W>(&self, out: &mut W) where W: ?Sized + RedisWrite {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
         self.to_string().write_redis_args(out)
     }
 }
@@ -118,7 +129,9 @@ impl ToRedisArgs for Eui {
 impl FromRedisValue for Eui {
     fn from_redis_value(v: &Value) -> RedisResult<Self> {
         let u = String::from_redis_value(v)?;
-        Self::from_str(&u).map_err(|e: DbErr| redis::RedisError::from((redis::ErrorKind::TypeError, "Eui parse", e.to_string())))
+        Self::from_str(&u).map_err(|e: DbErr| {
+            redis::RedisError::from((redis::ErrorKind::TypeError, "Eui parse", e.to_string()))
+        })
     }
 }
 
@@ -136,18 +149,16 @@ impl TryFrom<&str> for Eui {
             return Err(DbErr::Len(format!("Eui most 16 byte, found '{}'", value)));
         }
         let mut b = [0; 8];
-        hex::decode_to_slice(value, &mut b)
-            .map_err(|_| DbErr::Parse)?;
+        hex::decode_to_slice(value, &mut b).map_err(|_| DbErr::Parse)?;
 
         Ok(Self(u64::from_be_bytes(b)))
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use crate::db::Eui;
+    use std::str::FromStr;
 
     #[test]
     fn test_convert_str() {

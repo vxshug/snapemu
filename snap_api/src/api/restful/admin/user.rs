@@ -1,23 +1,22 @@
+use crate::api::SnPath;
+use crate::error::{ApiError, ApiResponseResult};
+use crate::AppState;
 use axum::extract::{Query, State};
-use axum::Router;
 use axum::routing::get;
+use common_define::db::{
+    DeviceGroupColumn, DeviceGroupEntity, DevicesEntity, Eui, UsersColumn, UsersEntity,
+};
+use common_define::product::DeviceType;
+use common_define::time::Timestamp;
+use common_define::Id;
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
-use common_define::db::{DeviceGroupColumn, DeviceGroupEntity, DevicesColumn, DevicesEntity, Eui, UsersColumn, UsersEntity};
-use common_define::Id;
-use common_define::product::DeviceType;
-use common_define::time::Timestamp;
-use crate::api::SnPath;
-use crate::AppState;
-use crate::error::{ApiError, ApiResponseResult};
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new()
-        .route("/", get(get_all_users))
-        .route("/info/:id", get(get_user_info))
+    OpenApiRouter::new().route("/", get(get_all_users)).route("/info/:id", get(get_user_info))
 }
 
 #[derive(Deserialize, utoipa::IntoParams)]
@@ -82,7 +81,6 @@ struct UserDevice {
     pub create_time: Timestamp,
 }
 
-
 #[derive(OpenApi)]
 #[openapi(
     paths(get_all_users,get_user_info),
@@ -107,17 +105,18 @@ async fn get_all_users(
     Query(page): Query<UserQuery>,
 ) -> ApiResponseResult<UserPages> {
     let page = page.page.unwrap_or(0);
-    let users_pages = UsersEntity::find()
-        .order_by_asc(UsersColumn::Id)
-        .paginate(&state.db, 50);
+    let users_pages = UsersEntity::find().order_by_asc(UsersColumn::Id).paginate(&state.db, 50);
     let page_count = users_pages.num_pages().await?;
     if page_count < page {
-        return Err(ApiError::User(format!("page {} is more than max {}", page, page_count).into()))
+        return Err(ApiError::User(
+            format!("page {} is more than max {}", page, page_count).into(),
+        ));
     }
     let users = users_pages.fetch_page(page).await?;
 
-    let v = users.into_iter().map(|it| {
-        UserPageItem {
+    let v = users
+        .into_iter()
+        .map(|it| UserPageItem {
             id: it.id,
             u_id: it.u_id,
             user_login: it.user_login,
@@ -127,13 +126,9 @@ async fn get_all_users(
             active_token: it.active_token,
             picture: it.picture,
             create_time: it.create_time,
-        }
-    }).collect();
-    Ok(UserPages {
-        page: page,
-        count: page_count,
-        users: v,
-    }.into())
+        })
+        .collect();
+    Ok(UserPages { page, count: page_count, users: v }.into())
 }
 
 ///
@@ -152,39 +147,42 @@ async fn get_user_info(
     State(state): State<AppState>,
     SnPath(user_id): SnPath<Id>,
 ) -> ApiResponseResult<UserInfo> {
-    let user = UsersEntity::find_by_id(user_id)
-        .one(&state.db)
-        .await?
-        .ok_or_else(|| {
-            warn!("Failed to find user with id {}", user_id);
-            ApiError::User("User not found".into())
-        })?;
+    let user = UsersEntity::find_by_id(user_id).one(&state.db).await?.ok_or_else(|| {
+        warn!("Failed to find user with id {}", user_id);
+        ApiError::User("User not found".into())
+    })?;
     let groups = DeviceGroupEntity::find()
         .filter(DeviceGroupColumn::Owner.eq(user_id))
         .find_with_related(DevicesEntity)
         .all(&state.db)
         .await?;
-    
-    let groups = groups.into_iter().map(|(group, devices)| {
-        let devices = devices.into_iter().map(|it| { UserDevice {
-            id: it.id,
-            eui: it.eui,
-            name: it.name,
-            description: it.description,
-            enable: it.enable,
-            device_type: DeviceType::from(it.device_type),
-            create_time: it.create_time,
-        } }).collect();
-        UserGroup {
-            id: group.id,
-            name: group.name,
-            description: group.description,
-            default_group: group.default_group,
-            devices: devices,
-            create_time: group.create_time,
-        }
-    }).collect();
-    
+
+    let groups = groups
+        .into_iter()
+        .map(|(group, devices)| {
+            let devices = devices
+                .into_iter()
+                .map(|it| UserDevice {
+                    id: it.id,
+                    eui: it.eui,
+                    name: it.name,
+                    description: it.description,
+                    enable: it.enable,
+                    device_type: it.device_type,
+                    create_time: it.create_time,
+                })
+                .collect();
+            UserGroup {
+                id: group.id,
+                name: group.name,
+                description: group.description,
+                default_group: group.default_group,
+                devices,
+                create_time: group.create_time,
+            }
+        })
+        .collect();
+
     Ok(UserInfo {
         id: user.id,
         u_id: user.u_id,
@@ -194,7 +192,8 @@ async fn get_user_info(
         active: user.active,
         active_token: user.active_token,
         picture: user.picture,
-        groups: groups,
+        groups,
         create_time: user.create_time,
-    }.into())
+    }
+    .into())
 }

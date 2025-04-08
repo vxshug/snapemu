@@ -4,8 +4,6 @@ use crate::service::device::device::DeviceWithAuth;
 use crate::service::device::DeviceService;
 use crate::{get_current_user, AppState};
 use axum::extract::State;
-use axum::routing::post;
-use axum::Router;
 use common_define::db::{
     CustomDecodeMap, CustomMapItem, SnapDeviceDataNameActiveModel, SnapDeviceDataNameColumn,
     SnapDeviceDataNameEntity,
@@ -35,7 +33,6 @@ struct DataMap {
     name: String,
     map: Vec<DataMapItem>,
 }
-
 
 /// Get data name mapping
 #[utoipa::path(
@@ -74,11 +71,7 @@ async fn get_map(
                     data_type: it.t,
                 })
                 .collect();
-            Ok(Some(DataMap {
-                name: map.name,
-                map: v,
-            })
-            .into())
+            Ok(Some(DataMap { name: map.name, map: v }).into())
         }
         None => Ok(None.into()),
     }

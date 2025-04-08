@@ -1,33 +1,33 @@
-use std::sync::Arc;
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use tracing::info;
 use snap_config::{DeviceTopicConfig, SnapConfig};
-
-use crate::Topic;
+use std::sync::Arc;
+use std::thread;
+use std::thread::Thread;
+use tracing::info;
+use crate::man::influxdb::InfluxDbClient;
+use crate::man::mqtt::{MessageProcessor, MqPublisher};
+use crate::mqtt::mqtt_auth_fn;
 use crate::protocol::lora::source::{listen_udp, LoRaUdp};
+use crate::protocol::mqtt;
+use crate::protocol::mqtt::Broker;
+use crate::service::custom_gateway::start_process_snap;
+use crate::Topic;
 
-
-static CONFIG: Lazy<ArcSwap<DeviceConfig>> = Lazy::new(|| { ArcSwap::new(Arc::new(DeviceConfig::default())) });
-
+static CONFIG: Lazy<ArcSwap<DeviceConfig>> =
+    Lazy::new(|| ArcSwap::new(Arc::new(DeviceConfig::default())));
 
 pub fn store_config(config: String, env_prefix: String) -> arc_swap::Guard<Arc<DeviceConfig>> {
     if !std::path::Path::new(&config).exists() {
         eprintln!("not fount config file in {}", config);
-        let config = SnapConfig::builder()
-            .env_prefix(&env_prefix)
-            .build().unwrap();
+        let config = SnapConfig::builder().env_prefix(&env_prefix).build().unwrap();
         CONFIG.store(Arc::new(config.into_local_config().unwrap()));
-        return load_config()
+        return load_config();
     }
-    let config = SnapConfig::builder()
-        .add_file(&config)
-        .env_prefix(&env_prefix)
-        .build().unwrap();
+    let config = SnapConfig::builder().add_file(&config).env_prefix(&env_prefix).build().unwrap();
     CONFIG.store(Arc::new(config.into_local_config().unwrap()));
     load_config()
-
 }
 pub fn load_config() -> arc_swap::Guard<Arc<DeviceConfig>> {
     CONFIG.load()
@@ -44,31 +44,36 @@ pub struct DeviceConfig {
     #[serde(default)]
     pub device: DeviceConfigInner,
     #[serde(default)]
-    pub mqtt: Option<MqttConfig>,
+    pub mqtt: Option<mqtt::MqttConfig>,
     #[serde(default)]
-    pub snap: Option<SnapDeviceConfig>
+    pub snap: Option<SnapDeviceConfig>,
+    #[serde(default)]
+    pub tsdb: Option<snap_config::TsdbConfig>,
 }
 
 #[derive(Deserialize, Debug, Default)]
 pub struct DeviceConfigInner {
     pub topic: DeviceTopicConfig,
-    pub lorawan: LoRaConfig
+    pub lorawan: LoRaConfig,
+    pub model: Option<ModelConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ModelConfig {
+    pub path: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct LoRaConfig {
-    #[serde(default="_default_lora_host")]
+    #[serde(default = "_default_lora_host")]
     pub host: String,
-    #[serde(default="_default_lora_port")]
+    #[serde(default = "_default_lora_port")]
     pub port: u16,
 }
 
 impl Default for LoRaConfig {
     fn default() -> Self {
-        Self {
-            host: _default_lora_host(),
-            port: _default_lora_port(),
-        }
+        Self { host: _default_lora_host(), port: _default_lora_port() }
     }
 }
 
@@ -96,13 +101,14 @@ pub struct MqttConfig {
 
 #[derive(Deserialize, Debug)]
 pub struct SnapDeviceConfig {
-    pub mqtt: MqttConfig
+    pub mqtt: MqttConfig,
 }
-
 
 pub struct State {
     pub db: sea_orm::DatabaseConnection,
+    pub tsdb: InfluxDbClient,
     pub udp: LoRaUdp,
+    pub mq: MqPublisher
 }
 pub(crate) fn load_state() -> State {
     tokio::task::block_in_place(move || {
@@ -112,16 +118,35 @@ pub(crate) fn load_state() -> State {
             tokio::spawn(async move {
                 forward.start().await;
             });
-            State {
-                db,
-                udp,
-            }
+            let tsdb = load_tsdb();
+            let mut broker_config = load_config().mqtt.clone().unwrap();
+            broker_config.external_auth = Some(Arc::new(mqtt_auth_fn));
+            let mut b = Broker::new(broker_config);
+
+            let (mut link_tx, link_rx) = b.link("client").unwrap();
+            link_tx.subscribe("#").unwrap();
+
+            let (tx, rx) = tokio::sync::mpsc::channel(100);
+            let subscriber = MessageProcessor::new_with_sender(link_rx, tx);
+            tokio::spawn(subscriber.start());
+            tokio::spawn(start_process_snap(rx));
+            let broker_thread = thread::Builder::new().name("broker".to_string());
+            broker_thread.spawn(move || {
+                b.start().unwrap();
+            }).unwrap();
+            State { db, udp, tsdb, mq: MqPublisher::new(link_tx) }
         })
     })
 }
 
+fn load_tsdb() -> InfluxDbClient {
+    let config = load_config();
+    let tsdb_config = config.tsdb.clone().unwrap();
+    let client = influxdb2::Client::new(tsdb_config.host, tsdb_config.org, tsdb_config.token);
+    InfluxDbClient::new(tsdb_config.bucket, client)
+}
 
-async fn load_db() -> sea_orm::DatabaseConnection  {
+async fn load_db() -> sea_orm::DatabaseConnection {
     let config = load_config();
     let username = config.db.username.clone();
     let password = config.db.password.clone();
@@ -129,12 +154,7 @@ async fn load_db() -> sea_orm::DatabaseConnection  {
     let count = config.db.connection_count;
     let db = config.db.db.clone();
     let host = config.db.host.clone();
-    info!(
-                event = "config",
-                "type" = "db",
-                host  = host,
-                "DB Config success"
-            );
+    info!(event = "config", "type" = "db", host = host, "DB Config success");
     let url = format!("postgres://{username}:{password}@{host}:{port}/{db}");
     let mut option = sea_orm::ConnectOptions::new(url);
     option.max_connections(count as _);
@@ -142,20 +162,15 @@ async fn load_db() -> sea_orm::DatabaseConnection  {
     sea_orm::Database::connect(option).await.unwrap()
 }
 
-
-
 pub(crate) fn load_topic() -> Topic {
     let config = load_config();
     let data = config.device.topic.data.clone();
     let event = config.device.topic.event.clone();
     let down = config.device.topic.down.clone();
 
-    
     Topic {
         data: Box::leak(data.into_boxed_str()),
         gate_event: Box::leak(event.into_boxed_str()),
         down: Box::leak(down.into_boxed_str()),
     }
 }
-
-

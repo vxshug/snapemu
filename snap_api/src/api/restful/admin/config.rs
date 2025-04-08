@@ -1,20 +1,15 @@
-use crate::api::{SnJson, SnPath};
-use crate::error::{ApiError, ApiResponseResult};
+use crate::api::SnJson;
+use crate::error::ApiResponseResult;
 use crate::AppState;
-use axum::extract::{Query, State};
+use axum::extract::State;
 use axum::routing::get;
-use axum::Router;
-use common_define::db::{
-    DeviceGroupColumn, DeviceGroupEntity, DevicesColumn, DevicesEntity, Eui, SnapConfigActiveModel,
-    SnapConfigColumn, SnapConfigEntity, UsersColumn, UsersEntity,
-};
+use common_define::db::{SnapConfigActiveModel, SnapConfigColumn, SnapConfigEntity};
 use common_define::time::Timestamp;
 use common_define::Id;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
@@ -65,10 +60,7 @@ async fn get_all_config(State(state): State<AppState>) -> ApiResponseResult<Conf
             create_time: item.create_time,
         })
         .collect();
-    Ok(Config {
-        config: config_item,
-    }
-    .into())
+    Ok(Config { config: config_item }.into())
 }
 
 ///
@@ -90,10 +82,8 @@ async fn put_config_info(
     let conn = &state.db;
     let mut v = vec![];
     for (name, value) in config {
-        let it = SnapConfigEntity::find()
-            .filter(SnapConfigColumn::Name.eq(&name))
-            .one(conn)
-            .await?;
+        let it =
+            SnapConfigEntity::find().filter(SnapConfigColumn::Name.eq(&name)).one(conn).await?;
         let r = match it {
             None => {
                 let model = SnapConfigActiveModel {
@@ -110,12 +100,7 @@ async fn put_config_info(
                 model.update(conn).await?
             }
         };
-        v.push(ConfigItem {
-            id: r.id,
-            name: r.name,
-            value: r.value,
-            create_time: r.create_time,
-        })
+        v.push(ConfigItem { id: r.id, name: r.name, value: r.value, create_time: r.create_time })
     }
     Ok(Config { config: v }.into())
 }

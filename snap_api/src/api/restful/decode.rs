@@ -1,18 +1,14 @@
-use axum::{Router};
-use axum::extract::State;
-use axum::routing::{delete, post};
-use utoipa_axum::router::OpenApiRouter;
-use utoipa_axum::routes;
-use common_define::Id;
 use crate::api::{SnJson, SnPath};
 use crate::error::ApiResponseResult;
-use crate::{get_current_user, AppState};
 use crate::service::decode::{DecodeService, ScriptRequest};
+use crate::{get_current_user, AppState};
+use axum::extract::State;
+use common_define::Id;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new()
-        .routes(routes!(new_script, list_script))
-        .routes(routes!(delete_script))
+    OpenApiRouter::new().routes(routes!(new_script, list_script)).routes(routes!(delete_script))
 }
 
 /// Create JS script
@@ -26,14 +22,10 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
 )]
 async fn new_script(
     State(state): State<AppState>,
-    SnJson(req): SnJson<ScriptRequest>
+    SnJson(req): SnJson<ScriptRequest>,
 ) -> ApiResponseResult<ScriptRequest> {
     let user = get_current_user();
-    let script = DecodeService::insert_script(
-        &user,
-        req,
-        &state.db
-    ).await?;
+    let script = DecodeService::insert_script(&user, req, &state.db).await?;
     Ok(script.into())
 }
 
@@ -46,15 +38,10 @@ async fn new_script(
     ),
     tag = crate::DECODE_TAG
 )]
-async fn list_script(
-    State(state): State<AppState>,
-) -> ApiResponseResult<Vec<ScriptRequest>> {
+async fn list_script(State(state): State<AppState>) -> ApiResponseResult<Vec<ScriptRequest>> {
     let user = get_current_user();
-    
-    let s = DecodeService::list(
-        &user,
-        &state.db
-    ).await?;
+
+    let s = DecodeService::list(&user, &state.db).await?;
     Ok(s.into())
 }
 
@@ -69,10 +56,10 @@ async fn list_script(
 )]
 async fn delete_script(
     State(state): State<AppState>,
-    SnPath(id): SnPath<Id>
+    SnPath(id): SnPath<Id>,
 ) -> ApiResponseResult<String> {
     let user = get_current_user();
-    
+
     DecodeService::delete_script(&user, id, &state.db).await?;
     Ok(String::new().into())
 }

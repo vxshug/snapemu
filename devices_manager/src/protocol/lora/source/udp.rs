@@ -1,21 +1,22 @@
+use crate::load::load_config;
+use crate::service::lorawan_gateway::gateway_event;
 use crate::{DeviceError, DeviceResult};
 use common_define::db::Eui;
-use common_define::lorawan_bridge::{DownStream, GatewayEventType, GatewaySource, GatewayToken, GatewayUpData, RXPK};
+use common_define::event::lora_gateway::GatewayStatus;
+use common_define::lorawan_bridge::{
+    DownStream, GatewayEventType, GatewaySource, GatewayToken, GatewayUpData, RXPK,
+};
 use common_define::time::Timestamp;
-use std::{net::SocketAddr, ops::Deref, sync::Arc};
 use serde::Deserialize;
+use std::{net::SocketAddr, ops::Deref, sync::Arc};
 use tokio::net::UdpSocket;
 use tracing::instrument;
 use tracing::{info, warn};
-use common_define::event::lora_gateway::GatewayStatus;
-use crate::load::load_config;
-use crate::service::lorawan_gateway::gateway_event;
 
 #[derive(Clone)]
 pub struct UdpCli {
     socket: Arc<UdpSocket>,
 }
-
 
 pub async fn listen_udp() -> DeviceResult<(UdpForward, LoRaUdp)> {
     let config = load_config();
@@ -23,9 +24,7 @@ pub async fn listen_udp() -> DeviceResult<(UdpForward, LoRaUdp)> {
     let port = config.device.lorawan.port;
     info!("udp listen: {}:{}", host, port);
     let socket = UdpSocket::bind(format!("{}:{}", host, port)).await?;
-    let socket = UdpCli {
-        socket: Arc::new(socket),
-    };
+    let socket = UdpCli { socket: Arc::new(socket) };
     Ok((UdpForward { rx: socket.clone() }, LoRaUdp { socket }))
 }
 
@@ -57,7 +56,7 @@ impl UdpForward {
     #[instrument(skip(self, s))]
     async fn log(&mut self, s: &[u8], addr: SocketAddr) {
         match self.decode(s, addr).await {
-            Ok(up) => { gateway_event(up) }
+            Ok(up) => gateway_event(up),
             Err(e) => {
                 warn!(addr = addr.to_string(), "{}", e);
             }
@@ -66,27 +65,21 @@ impl UdpForward {
     #[instrument(skip(self, s))]
     async fn decode(&mut self, s: &[u8], addr: SocketAddr) -> DeviceResult<GatewayUpData> {
         if s.len() < 12 {
-            return Err(DeviceError::Data(format!(
-                "gateway receive invalid: {:X?}",
-                s
-            )));
+            return Err(DeviceError::Data(format!("gateway receive invalid: {:X?}", s)));
         }
         let version = s[0];
         if version != 2 {
-            return Err(DeviceError::Data(format!(
-                "gateway receive invalid version: {:X?}",
-                s
-            )));
+            return Err(DeviceError::Data(format!("gateway receive invalid version: {:X?}", s)));
         }
 
         let event = match s[3] {
-            0 => {
-                match split_push_and_state(&s[12..]) {
-                    Some(s) => s,
-                    None => return Err(DeviceError::Data(format!(
+            0 => match split_push_and_state(&s[12..]) {
+                Some(s) => s,
+                None => {
+                    return Err(DeviceError::Data(format!(
                         "gateway receive invalid payload: {:X?}",
                         s
-                    ))),
+                    )))
                 }
             },
             2 => GatewayEventType::Pull,
@@ -99,14 +92,10 @@ impl UdpForward {
             }
         };
 
-        let token = GatewayToken::from_slice(&s[1..3]).ok_or(DeviceError::Data(format!(
-            "gateway receive invalid token: {:X?}",
-            s
-        )))?;
-        let eui = Eui::from_be_bytes(&s[4..12]).ok_or(DeviceError::Data(format!(
-            "gateway receive invalid eui: {:X?}",
-            s
-        )))?;
+        let token = GatewayToken::from_slice(&s[1..3])
+            .ok_or(DeviceError::Data(format!("gateway receive invalid token: {:X?}", s)))?;
+        let eui = Eui::from_be_bytes(&s[4..12])
+            .ok_or(DeviceError::Data(format!("gateway receive invalid eui: {:X?}", s)))?;
 
         let data = GatewayUpData {
             eui,
@@ -123,16 +112,16 @@ impl UdpForward {
 #[derive(Deserialize)]
 struct UpPack {
     rxpk: Option<Vec<RXPK>>,
-    stat: Option<GatewayStatus>
+    stat: Option<GatewayStatus>,
 }
 
 fn split_push_and_state(s: &[u8]) -> Option<GatewayEventType> {
     if let Ok(up) = serde_json::from_slice::<UpPack>(s) {
         if let Some(stat) = up.stat {
-            return Some(GatewayEventType::Status(stat))
+            return Some(GatewayEventType::Status(stat));
         }
         if let Some(rxpk) = up.rxpk {
-            return Some(GatewayEventType::PushData(rxpk))
+            return Some(GatewayEventType::PushData(rxpk));
         }
     }
     warn!("invalid push data payload: {:?}", std::str::from_utf8(s));
@@ -146,9 +135,7 @@ pub struct LoRaUdp {
 
 impl LoRaUdp {
     pub fn new(socket: UdpCli) -> Self {
-        Self {
-            socket
-        }
+        Self { socket }
     }
 
     pub(crate) async fn down(
@@ -169,10 +156,7 @@ impl LoRaUdp {
                 t.extend_from_slice(&token.as_bytes_token());
                 t.push(0x3);
                 t.extend(s);
-                self.socket
-                    .send_to(&t, o)
-                    .await
-                    .map_err(DeviceError::warn)?;
+                self.socket.send_to(&t, o).await.map_err(DeviceError::warn)?;
             }
         }
         Ok(())

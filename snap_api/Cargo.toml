@@ -61,10 +61,12 @@ rsa.workspace = true
 
 base64.workspace = true
 serde_json.workspace = true
-serde_yaml.workspace = true
 async-graphql-value.workspace = true
 async-graphql-axum.workspace = true
 language-tags.workspace = true
+
+influxdb2.workspace = true
+influxdb2-structmap.workspace = true
 
 utoipa = { workspace = true, features = ["axum_extras"] }
 utoipa-scalar = { workspace = true, features = ["axum"] }

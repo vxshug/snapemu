@@ -1,10 +1,18 @@
+use crate::sea_string_type;
+use serde::{Deserializer, Serializer};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 use std::str::FromStr;
-use serde::{Deserializer, Serializer};
-use crate::{sea_string_type};
 
-#[derive(serde::Serialize, serde::Deserialize, Copy, Clone, Debug, strum::AsRefStr, strum::EnumString)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Copy,
+    Clone,
+    Debug,
+    strum::AsRefStr,
+    strum::EnumString
+)]
 pub enum ValueType {
     Array,
     F64,
@@ -17,7 +25,6 @@ pub enum ValueType {
     I32,
     U32,
 }
-
 
 #[derive(
     PartialEq,
@@ -44,7 +51,7 @@ pub enum LoRaRegion {
     AS923_3,
     KR920,
     IN865,
-    RU864
+    RU864,
 }
 
 sea_string_type!(LoRaRegion);
@@ -59,8 +66,9 @@ sea_string_type!(LoRaRegion);
     Debug,
     strum::AsRefStr,
     strum::EnumString,
-    Eq
-    , PartialEq)]
+    Eq,
+    PartialEq
+)]
 pub enum LoRaJoinType {
     OTAA,
     ABP,
@@ -68,7 +76,15 @@ pub enum LoRaJoinType {
 
 sea_string_type!(LoRaJoinType);
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, redis_macros::FromRedisValue, redis_macros::ToRedisArgs)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    redis_macros::FromRedisValue,
+    redis_macros::ToRedisArgs
+)]
 #[serde(transparent)]
 pub struct LoRaDevAddr(u32);
 
@@ -105,8 +121,7 @@ impl FromStr for LoRaDevAddr {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut buf = [0; 4];
-        hex::decode_to_slice(s, &mut buf)
-            .map_err(|s| s.to_string())?;
+        hex::decode_to_slice(s, &mut buf).map_err(|s| s.to_string())?;
         Ok(Self(u32::from_be_bytes(buf)))
     }
 }
@@ -116,7 +131,7 @@ pub struct Key(lorawan::keys::AES128);
 
 impl Debug for Key {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", hex::encode(self.0.0))
+        write!(f, "{}", hex::encode(self.0 .0))
     }
 }
 
@@ -127,10 +142,9 @@ impl Deref for Key {
     }
 }
 
-
 impl Key {
     pub(crate) fn string(&self) -> String {
-        hex::encode_upper(&self.0.0)
+        hex::encode_upper(self.0 .0)
     }
 }
 
@@ -138,8 +152,7 @@ impl FromStr for Key {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut key = [0; 16];
-        hex::decode_to_slice(s, &mut key)
-            .map_err(|s| s.to_string())?;
+        hex::decode_to_slice(s, &mut key).map_err(|s| s.to_string())?;
         Ok(Self(lorawan::keys::AES128(key)))
     }
 }
@@ -149,32 +162,44 @@ impl redis::FromRedisValue for Key {
         let mut key = [0; 16];
         match *v {
             redis::Value::BulkString(ref bytes) => {
-                hex::decode_to_slice(bytes, &mut key)
-                    .map_err(|s| redis::RedisError::from((redis::ErrorKind::TypeError, "str not match", s.to_string())))?;
+                hex::decode_to_slice(bytes, &mut key).map_err(|s| {
+                    redis::RedisError::from((
+                        redis::ErrorKind::TypeError,
+                        "str not match",
+                        s.to_string(),
+                    ))
+                })?;
                 Ok(Self(lorawan::keys::AES128(key)))
             }
-            _ => Err((redis::ErrorKind::TypeError, "Response type not string compatible.").into())
+            _ => Err((redis::ErrorKind::TypeError, "Response type not string compatible.").into()),
         }
     }
 }
 
 impl serde::Serialize for Key {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         self.string().serialize(serializer)
     }
 }
 
 impl<'de> serde::Deserialize<'de> for Key {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
-        let s  = String::deserialize(deserializer)?;
-        s.parse().map_err(|e| serde::de::Error::custom(e))
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(serde::de::Error::custom)
     }
 }
 
 impl redis::ToRedisArgs for Key {
     fn write_redis_args<W>(&self, out: &mut W)
-        where
-            W: ?Sized + redis::RedisWrite {
-        out.write_arg(hex::encode_upper(&self.0.0).as_bytes())
+    where
+        W: ?Sized + redis::RedisWrite,
+    {
+        out.write_arg(hex::encode_upper(self.0 .0).as_bytes())
     }
 }

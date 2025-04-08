@@ -5,8 +5,6 @@ use crate::service::device::define::DeviceParameter;
 use crate::service::lorawan::JoinParam;
 use crate::{tt, AppState};
 use axum::extract::State;
-use axum::routing::post;
-use axum::Router;
 use common_define::db::{
     DeviceLoraNodeColumn, DeviceLoraNodeEntity, DevicesColumn, DevicesEntity, Eui, LoRaAddr,
 };
@@ -85,10 +83,7 @@ pub(crate) async fn post_query(
     let eui = &req_eui[16..];
     let device = DeviceQueryClient::query_eui(eui)
         .await?
-        .ok_or(ApiError::User(tt!(
-            "messages.device.common.eui_not_found",
-            eui = eui
-        )))?;
+        .ok_or(ApiError::User(tt!("messages.device.common.eui_not_found", eui = eui)))?;
 
     match device.device_type {
         DeviceType::Snap | DeviceType::MQTT => Ok(DeviceRsp {
@@ -114,10 +109,7 @@ pub(crate) async fn post_query(
                 }
                 .into())
             } else {
-                Err(ApiError::User(tt!(
-                    "messages.device.common.eui_found_err",
-                    eui = eui
-                )))
+                Err(ApiError::User(tt!("messages.device.common.eui_found_err", eui = eui)))
             }
         }
         DeviceType::LoRaNode => {
@@ -140,10 +132,7 @@ pub(crate) async fn post_query(
                 }
                 .into())
             } else {
-                Err(ApiError::User(tt!(
-                    "messages.device.common.eui_found_err",
-                    eui = eui
-                )))
+                Err(ApiError::User(tt!("messages.device.common.eui_found_err", eui = eui)))
             }
         }
     }
@@ -163,23 +152,16 @@ pub async fn register_query(
 ) -> ApiResponseResult<()> {
     if let Some(eui) = req.dev_eui {
         let eui: Eui = eui.parse()?;
-        let device = DevicesEntity::find()
-            .filter(DevicesColumn::Eui.eq(eui))
-            .one(&state.db)
-            .await?;
+        let device =
+            DevicesEntity::find().filter(DevicesColumn::Eui.eq(eui)).one(&state.db).await?;
         if device.is_some() {
-            return Err(ApiError::User(tt!(
-                "messages.device.common.device_already",
-                eui = eui
-            )));
+            return Err(ApiError::User(tt!("messages.device.common.device_already", eui = eui)));
         }
     }
     if let Some(gateway) = req.gateway {
         let gateway: Eui = gateway.parse()?;
-        let device = DevicesEntity::find()
-            .filter(DevicesColumn::Eui.eq(gateway))
-            .one(&state.db)
-            .await?;
+        let device =
+            DevicesEntity::find().filter(DevicesColumn::Eui.eq(gateway)).one(&state.db).await?;
         if device.is_some() {
             return Err(ApiError::User(tt!(
                 "messages.device.common.device_already",
@@ -197,13 +179,9 @@ pub async fn register_query(
             .await?;
 
         if node.is_some() {
-            return Err(ApiError::User(tt!(
-                "messages.device.lora.dev_addr_already",
-                addr = addr
-            )));
+            return Err(ApiError::User(tt!("messages.device.lora.dev_addr_already", addr = addr)));
         }
     }
 
     Ok(().into())
 }
-

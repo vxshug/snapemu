@@ -1,19 +1,19 @@
-use std::collections::HashMap;
-use std::sync::Mutex;
-use axum::extract::FromRequestParts;
 use crate::error::{ApiError, ApiResponseResult, ApiResult};
+use crate::man::RedisClient;
 use crate::service::user::{RedisToken, UserService};
-use axum::{async_trait, http};
-use axum::http::{Request, StatusCode};
+use crate::{run_with_user, tt};
+use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
+use axum::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use once_cell::sync::Lazy;
-use tracing::log::debug;
+use axum::{async_trait, http};
 use common_define::time::Timestamp;
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
+use std::sync::Mutex;
+use tracing::log::debug;
 use tracing::{info, warn};
-use crate::{run_with_user, tt, RedisPool};
-use crate::man::RedisClient;
 
 #[derive(Clone, PartialEq, Copy)]
 pub enum UserLang {
@@ -31,11 +31,11 @@ impl Default for UserLang {
     }
 }
 
-impl  UserLang {
+impl UserLang {
     pub(crate) fn as_static_str(&self) -> &'static str {
         match self {
             UserLang::EN => "en",
-            UserLang::ZH => "zh"
+            UserLang::ZH => "zh",
         }
     }
 }
@@ -43,9 +43,7 @@ impl  UserLang {
 impl UserLang {
     pub(crate) fn form_str(s: Option<&str>) -> Self {
         match s {
-            None => {
-                Self::EN
-            }
+            None => Self::EN,
             Some(s) => {
                 if s.starts_with(Self::ZH.as_static_str()) {
                     Self::ZH
@@ -78,26 +76,20 @@ impl<S> FromRequestParts<S> for AuthorizationToken {
     type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let auth_header = parts
-            .headers
-            .get(http::header::AUTHORIZATION)
-            .and_then(|header| header.to_str().ok());
+        let auth_header =
+            parts.headers.get(http::header::AUTHORIZATION).and_then(|header| header.to_str().ok());
         match auth_header {
             Some(token) => {
                 let format = token.split_once("Bearer ");
                 match format {
-                    None => Err(ApiError::User(
-                        "`Authorization` start with Bearer".into(),
-                    )),
+                    None => Err(ApiError::User("`Authorization` start with Bearer".into())),
                     Some((_, auth)) => {
                         info!("auth: {}", auth);
                         Ok(Self(auth.into()))
                     }
                 }
             }
-            None => {
-                Err(ApiError::User("Not Found Authorization".into()))
-            }
+            None => Err(ApiError::User("Not Found Authorization".into())),
         }
     }
 }
@@ -114,10 +106,12 @@ pub async fn status() -> ApiResponseResult<HashMap<String, String>> {
     Ok(h.into())
 }
 
-pub(crate) async fn auth(req: Request<axum::body::Body>, next: Next) -> Result<Response, StatusCode> {
-    let auth_header = req.headers()
-        .get(http::header::AUTHORIZATION)
-        .and_then(|header| header.to_str().ok());
+pub(crate) async fn auth(
+    req: Request<axum::body::Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let auth_header =
+        req.headers().get(http::header::AUTHORIZATION).and_then(|header| header.to_str().ok());
 
     let auth_header = if let Some(auth_header) = auth_header {
         auth_header
@@ -125,7 +119,7 @@ pub(crate) async fn auth(req: Request<axum::body::Body>, next: Next) -> Result<R
         warn!("Not auth");
         return Ok(ApiError::User("Not Found Authorization".into()).into_response());
     };
-    
+
     match authorize_current_user(auth_header).await {
         Ok(user) => {
             {
@@ -145,19 +139,13 @@ pub(crate) async fn auth(req: Request<axum::body::Body>, next: Next) -> Result<R
         Err(e) => Ok(e.into_response()),
     }
 }
-static GLOBAL_REQUEST: Lazy<Mutex<HashMap<String, Timestamp>>> = Lazy::new(|| {
-    Mutex::new(Default::default())
-});
+static GLOBAL_REQUEST: Lazy<Mutex<HashMap<String, Timestamp>>> =
+    Lazy::new(|| Mutex::new(Default::default()));
 
-
-async fn authorize_current_user(
-    auth_token: &str
-) -> ApiResult<RedisToken> {
+async fn authorize_current_user(auth_token: &str) -> ApiResult<RedisToken> {
     let format = auth_token.split_once("Bearer ");
     match format {
-        None => Err(ApiError::User(
-            tt!("messages.user.login.auth_begin")
-        )),
+        None => Err(ApiError::User(tt!("messages.user.login.auth_begin"))),
         Some((_, auth)) => {
             debug!("auth: {}", auth);
             let mut s = RedisClient::get_client().get().await?;
@@ -165,4 +153,3 @@ async fn authorize_current_user(
         }
     }
 }
-

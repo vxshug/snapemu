@@ -1,6 +1,6 @@
+use common_define::db::{Eui, Key};
 use lorawan::default_crypto::DefaultFactory;
 use lorawan::parser::JoinRequestPayload;
-use common_define::db::{Eui, Key};
 
 #[derive(Debug)]
 pub(crate) struct RequestJoin(JoinRequestPayload<Vec<u8>, DefaultFactory>);

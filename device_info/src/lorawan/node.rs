@@ -1,16 +1,16 @@
-use redis::AsyncCommands;
-use serde::Serialize;
-use tracing::{instrument, warn};
+use crate::MyOption;
 use common_define::db::{DeviceLoraNodeModel, DevicesModel, Eui, Key, LoRaAddr};
-use common_define::Id;
 use common_define::lora::{LoRaJoinType, LoRaRegion};
 use common_define::product::ProductType;
 use common_define::time::Timestamp;
+use common_define::Id;
 use hash_name::{HashNames, RedisOps};
-use crate::MyOption;
+use serde::Serialize;
+use tracing::{instrument, warn};
 
 #[derive(Debug, Serialize, HashNames, RedisOps)]
 pub struct NodeInfo {
+    pub user_id: Option<Id>,
     pub device_id: Id,
     pub region: LoRaRegion,
     pub join_type: LoRaJoinType,
@@ -48,23 +48,18 @@ pub struct NodeInfo {
     pub app_non: i32,
     pub net_id: i32,
     pub enable: bool,
-    pub online: bool,
+    pub period: i32,
     pub script: Option<Id>,
     pub active_time: Option<Timestamp>,
-    
-    pub gateway: Option<Eui>
+
+    pub gateway: Option<Eui>,
 }
 
 impl NodeInfo {
-    
-    fn eui_key(
-        dev_eui: Eui,
-    ) -> String {
+    fn eui_key(dev_eui: Eui) -> String {
         format!("info:eui:node:{}", dev_eui)
     }
-    pub fn addr_key(
-        addr: LoRaAddr,
-    ) -> String {
+    pub fn addr_key(addr: LoRaAddr) -> String {
         format!("info:node:{}", addr)
     }
 
@@ -90,7 +85,7 @@ impl NodeInfo {
             Some(k) => k,
             None => {
                 warn!("Error loading addr key {}", k);
-                return Ok(())
+                return Ok(());
             }
         };
         if redis::Cmd::exists(&k).query_async(conn).await? {
@@ -110,7 +105,7 @@ impl NodeInfo {
             Some(k) => k,
             None => {
                 warn!("Error loading addr key {}", k);
-                return Ok(())
+                return Ok(());
             }
         };
         if redis::Cmd::exists(&k).query_async(conn).await? {
@@ -140,7 +135,7 @@ impl NodeInfo {
         let k1 = Self::eui_key(dev_eui);
         redis::Cmd::exists(&k1).query_async(conn).await
     }
-    
+
     pub async fn check_addr<C: redis::aio::ConnectionLike>(
         addr: LoRaAddr,
         conn: &mut C,
@@ -165,16 +160,16 @@ impl NodeInfo {
     #[instrument(skip(conn))]
     pub async fn load_by_eui<C: redis::aio::ConnectionLike>(
         dev_eui: Eui,
-        conn: &mut C
+        conn: &mut C,
     ) -> redis::RedisResult<Option<Self>> {
         let k = Self::eui_key(dev_eui);
         match Self::load_addr_key(&k, conn).await? {
-            Some(k) => {
-                redis::cmd("HGETALL").arg(&k).query_async::<MyOption<Self>>(conn).await.map(Into::into)
-            }
-            None => {
-                Ok(None)
-            }
+            Some(k) => redis::cmd("HGETALL")
+                .arg(&k)
+                .query_async::<MyOption<Self>>(conn)
+                .await
+                .map(Into::into),
+            None => Ok(None),
         }
     }
 
@@ -202,7 +197,7 @@ impl NodeInfo {
     #[instrument(skip(conn))]
     async fn load_addr_key<C: redis::aio::ConnectionLike>(
         key: &str,
-        conn: &mut C
+        conn: &mut C,
     ) -> redis::RedisResult<Option<String>> {
         let k: Option<String> = redis::cmd("GET").arg(key).query_async(conn).await?;
         Ok(k)
@@ -211,14 +206,19 @@ impl NodeInfo {
     #[instrument(skip(conn))]
     pub async fn load_by_addr<C: redis::aio::ConnectionLike>(
         addr: LoRaAddr,
-        conn: &mut C
+        conn: &mut C,
     ) -> redis::RedisResult<Option<Self>> {
         let k = Self::addr_key(addr);
         redis::cmd("HGETALL").arg(&k).query_async::<MyOption<Self>>(conn).await.map(Into::into)
     }
 
-    pub async fn register_to_redis<C: redis::aio::ConnectionLike>(node: DeviceLoraNodeModel, device: DevicesModel, conn: &mut C) -> redis::RedisResult<Self> {
+    pub async fn register_to_redis<C: redis::aio::ConnectionLike>(
+        node: DeviceLoraNodeModel,
+        device: DevicesModel,
+        conn: &mut C,
+    ) -> redis::RedisResult<Self> {
         let node_info = NodeInfo {
+            user_id: Some(device.creator),
             device_id: node.device_id,
             region: node.region,
             join_type: node.join_type,
@@ -256,7 +256,7 @@ impl NodeInfo {
             app_non: node.app_non,
             net_id: node.net_id,
             enable: device.enable,
-            online: device.online,
+            period: device.period,
             script: device.script,
             active_time: device.active_time,
             gateway: None,

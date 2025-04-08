@@ -1,11 +1,11 @@
+use crate::MyOption;
+use common_define::db::{Eui, Key};
+use common_define::time::Timestamp;
+use common_define::Id;
 use derive_new::new;
+use hash_name::{HashNames, RedisOps};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
-use common_define::db::{Eui, Key};
-use common_define::Id;
-use common_define::time::Timestamp;
-use hash_name::{HashNames, RedisOps};
-use crate::MyOption;
 
 #[derive(Debug, Serialize, Deserialize, RedisOps, HashNames, new)]
 pub struct SnapDeviceInfo {
@@ -15,11 +15,10 @@ pub struct SnapDeviceInfo {
     pub up_count: u32,
     pub down: Option<String>,
     pub script: Option<Id>,
-    pub freq: Option<f32>
+    pub freq: Option<f32>,
 }
 
 impl SnapDeviceInfo {
-
     pub fn eui_key(eui: Eui) -> String {
         format!("info:snap:{}", eui)
     }
@@ -41,7 +40,7 @@ impl SnapDeviceInfo {
     ) -> redis::RedisResult<()> {
         let k = Self::eui_key(eui);
         if redis::Cmd::exists(&k).query_async(conn).await? {
-            redis::cmd("HSET").arg(&k).arg(key).arg(v).query_async(conn).await?;
+            () = redis::cmd("HSET").arg(&k).arg(key).arg(v).query_async(conn).await?;
         }
         Ok(())
     }

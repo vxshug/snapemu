@@ -4,8 +4,6 @@ use crate::service::device::device::DeviceWithAuth;
 use crate::service::device::DeviceService;
 use crate::{get_current_user, AppState};
 use axum::extract::State;
-use axum::routing::{delete, get, post};
-use axum::Router;
 use base64::Engine;
 use common_define::db::{SnapDownLinkActiveModel, SnapDownLinkColumn, SnapDownLinkEntity};
 use common_define::event::{DeviceEvent, DownEvent};
@@ -119,11 +117,7 @@ async fn get_template(
     let DeviceWithAuth { auth, device } =
         DeviceService::query_one_with_auth(user.id, id, &state.db).await?;
     let templates = SnapDownLinkEntity::find()
-        .filter(
-            SnapDownLinkColumn::UserId
-                .eq(user.id)
-                .and(SnapDownLinkColumn::DeviceId.eq(id)),
-        )
+        .filter(SnapDownLinkColumn::UserId.eq(user.id).and(SnapDownLinkColumn::DeviceId.eq(id)))
         .all(&state.db)
         .await?;
     let v: Vec<_> = templates
@@ -167,13 +161,7 @@ async fn post_template(
         create_time: ActiveValue::Set(Timestamp::now()),
     };
     let ok = model.insert(&state.db).await?;
-    Ok(DownTemplateItem {
-        id: ok.id,
-        name: ok.name,
-        data: ok.data,
-        port: ok.port,
-    }
-    .into())
+    Ok(DownTemplateItem { id: ok.id, name: ok.name, data: ok.data, port: ok.port }.into())
 }
 
 /// Delete the template for sending data
@@ -197,12 +185,11 @@ async fn delete_template(
         .await?
         .ok_or_else(|| ApiError::User("no template found".into()))?;
     if template.user_id != user.id {
-        return Err(ApiError::User("invalid user".into()).into());
+        return Err(ApiError::User("invalid user".into()));
     }
     if template.device_id != device_id {
-        return Err(ApiError::User("invalid device".into()).into());
+        return Err(ApiError::User("invalid device".into()));
     }
     template.delete(&state.db).await?;
     Ok(().into())
 }
-

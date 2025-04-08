@@ -1,8 +1,8 @@
+use common_define::db::SnapProductInfoModel;
+use common_define::Id;
+use derive_new::new;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use derive_new::new;
-use common_define::db::{SnapProductInfoModel};
-use common_define::Id;
 
 #[derive(Debug, new)]
 pub struct ProductNameCache {
@@ -36,13 +36,11 @@ impl ProductNameCache {
     pub fn get_by_id(&self, product_id: Option<Id>) -> Option<SnapProductInfoModel> {
         let g = self.v.lock().unwrap();
         match product_id {
-            Some(id) => {
-                match g.get(&id) { 
-                    Some(g) => Some(g.clone()),
-                    None => g.get(&Id::new(1)).map(|g| g.clone()),
-                }
+            Some(id) => match g.get(&id) {
+                Some(g) => Some(g.clone()),
+                None => g.get(&Id::new(1)).cloned(),
             },
-            None => g.get(&Id::new(1)).map(|g| g.clone()),
+            None => g.get(&Id::new(1)).cloned(),
         }
     }
     pub fn get_all_product(&self) -> Vec<SnapProductInfoModel> {

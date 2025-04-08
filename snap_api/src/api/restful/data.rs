@@ -1,14 +1,13 @@
-use crate::error::{ApiResponseResult};
+use crate::api::SnPath;
+use crate::error::ApiResponseResult;
 use crate::service::data::query::{DataDeviceOneResponseWrap, DataDuration, DataResponseWrap};
 use crate::service::data::DataService;
-use axum::routing::get;
+use crate::service::device::DeviceService;
+use crate::{get_current_user, AppState};
 use axum::extract::State;
+use common_define::Id;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
-use common_define::Id;
-use crate::api::SnPath;
-use crate::{get_current_user, AppState};
-use crate::service::device::DeviceService;
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
@@ -16,7 +15,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(get_day_data))
         .routes(routes!(get_week_data))
         .routes(routes!(get_last_data))
-        // .route("/:device/range", get(get_range_data))
+    // .route("/:device/range", get(get_range_data))
 }
 
 /// Get 1 hour of data
@@ -40,7 +39,9 @@ async fn get_hour_data(
 ) -> ApiResponseResult<DataResponseWrap> {
     let user = get_current_user();
     let device_db = DeviceService::query_one(user.id, device, &state.db).await?;
-    let data = DataService::query_duration_data(device, device_db.script, DataDuration::Hour, &state).await?;
+    let data =
+        DataService::query_duration_data(device, DataDuration::Hour, &state)
+            .await?;
     Ok(data.into())
 }
 
@@ -65,7 +66,9 @@ async fn get_day_data(
 ) -> ApiResponseResult<DataResponseWrap> {
     let user = get_current_user();
     let device_db = DeviceService::query_one(user.id, device, &state.db).await?;
-    let data = DataService::query_duration_data(device, device_db.script, DataDuration::Day, &state).await?;
+    let data =
+        DataService::query_duration_data(device, DataDuration::Day, &state)
+            .await?;
     Ok(data.into())
 }
 
@@ -90,7 +93,9 @@ async fn get_week_data(
 ) -> ApiResponseResult<DataResponseWrap> {
     let user = get_current_user();
     let device_db = DeviceService::query_one(user.id, device, &state.db).await?;
-    let data = DataService::query_duration_data(device, device_db.script, DataDuration::Week, &state).await?;
+    let data =
+        DataService::query_duration_data(device, DataDuration::Week, &state)
+            .await?;
     Ok(data.into())
 }
 
@@ -114,7 +119,7 @@ async fn get_last_data(
     SnPath(device): SnPath<Id>,
 ) -> ApiResponseResult<DataDeviceOneResponseWrap> {
     let user = get_current_user();
-    
+
     let device_db = DeviceService::query_one(user.id, device, &state.db).await?;
     let data = DataService::query_last(&device_db, &state).await?;
     Ok(data.into())
@@ -125,16 +130,16 @@ struct QueryRangeParams {
     s: u64,
     e: u64,
     id: Option<u64>,
-    c: Option<u64>
+    c: Option<u64>,
 }
-// 
+//
 // async fn get_range_data(
 //     mut conn: DatabaseConnection,
 //     Query(params): Query<QueryRangeParams>,
 //     Path(device): Path<Id>,
 // ) -> ApiResponseResult<DataResponseWrap> {
 //     let user = get_current_user();
-//     
+//
 //     snap_log::log::warn!("{:?}", params);
 //     if params.s > params.e {
 //         return Err(ApiError::User(

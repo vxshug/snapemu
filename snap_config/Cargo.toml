@@ -13,5 +13,4 @@ async-trait.workspace = true
 config.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-serde_yaml.workspace = true
 thiserror.workspace = true

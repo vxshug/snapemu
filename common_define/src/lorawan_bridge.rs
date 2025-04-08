@@ -1,9 +1,9 @@
-use std::fmt::{Debug, Display, Formatter};
+use crate::db::Eui;
+use crate::event::lora_gateway::GatewayStatus;
+use crate::time::Timestamp;
 use derive_new::new;
 use serde::{Deserialize, Serialize};
-use crate::db::Eui;
-use crate::event::lora_gateway::{GatewayStatus};
-use crate::time::Timestamp;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone, Copy, serde::Deserialize, serde::Serialize, PartialEq, PartialOrd)]
 #[serde(try_from = "u16", into = "u16")]
@@ -11,7 +11,7 @@ pub struct GatewayToken(u16);
 
 impl GatewayToken {
     pub fn from_slice(u: &[u8]) -> Option<Self> {
-        if u.len() != 2 { 
+        if u.len() != 2 {
             None
         } else {
             let mut a = [0; 2];
@@ -53,7 +53,6 @@ impl From<GatewayToken> for u16 {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GatewayUpData {
     pub eui: Eui,
@@ -82,7 +81,7 @@ impl GatewayUpData {
             source: self.source,
         };
         (h, self.event)
-    } 
+    }
 }
 
 impl Debug for GatewayUpData {
@@ -94,7 +93,7 @@ impl Debug for GatewayUpData {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GatewaySource {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ip: Option<std::net::SocketAddr>
+    pub ip: Option<std::net::SocketAddr>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -140,7 +139,7 @@ pub struct RXPK {
     pub lsnr: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<u32>,
-    pub data: String
+    pub data: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
@@ -165,8 +164,9 @@ pub struct TXPK {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ncrc: Option<bool>,
 }
-fn serde_freq<S>(v: &f32, serializer: S)
-                -> Result<S::Ok, S::Error> where S: serde::Serializer
+fn serde_freq<S>(v: &f32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
 {
     let rounded = (v * 1000.0).round() / 1000.0;
     serializer.serialize_f32(rounded)
@@ -174,7 +174,7 @@ fn serde_freq<S>(v: &f32, serializer: S)
 
 #[derive(serde::Serialize, serde::Deserialize, new)]
 pub struct DownStream {
-    pub txpk: TXPK
+    pub txpk: TXPK,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -184,7 +184,7 @@ pub struct GatewayDownData {
     pub token: GatewayToken,
     pub source: GatewaySource,
     pub time: Timestamp,
-    pub pk: GatewayDownPK
+    pub pk: GatewayDownPK,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

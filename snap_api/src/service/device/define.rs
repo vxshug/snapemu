@@ -29,20 +29,20 @@ pub struct LoRaNode {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blue_name: Option<String>,
-    pub join_parameter: LoRaParameter
+    pub join_parameter: LoRaParameter,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct LoRaGate {
     pub eui: String,
-    pub region: LoRaRegion
+    pub region: LoRaRegion,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(untagged)]
 pub enum DeviceParameter {
     Device(LoRaNode),
-    Gate(LoRaGate)
+    Gate(LoRaGate),
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct PredefineDeviceInfo {
@@ -50,5 +50,5 @@ pub struct PredefineDeviceInfo {
     pub eui: String,
     pub dev_addr: String,
     pub device_type: DeviceType,
-    pub parameter: DeviceParameter
+    pub parameter: DeviceParameter,
 }

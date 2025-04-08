@@ -6,11 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
 serde = { workspace = true, features=["derive"]}
 uuid = { workspace = true, features = ["std", "serde"]}
 chrono = { workspace = true, features = ["serde"] }
-
+influxdb2.workspace = true
 base64.workspace = true
 lorawan.workspace = true
 derive_more.workspace = true

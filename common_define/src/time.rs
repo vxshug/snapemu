@@ -1,5 +1,6 @@
-use std::fmt::{Debug, Display, Formatter};
 use redis::{RedisResult, RedisWrite, Value};
+use std::fmt::{Debug, Display, Formatter};
+use chrono::Timelike;
 
 #[derive(
     sea_orm::DeriveValueType,
@@ -32,24 +33,22 @@ impl Debug for Timestamp {
     }
 }
 
-
 impl Timestamp {
     pub fn now() -> Self {
         Self(chrono::Utc::now())
     }
-    
+
     pub fn timestamp_millis(&self) -> u64 {
         self.0.timestamp_millis() as u64
     }
     pub fn timestamp_micros(&self) -> u64 {
         self.0.timestamp_micros() as u64
     }
-    
+
     pub fn from_timestamp_millis(value: u64) -> Option<Self> {
-        chrono::DateTime::from_timestamp_millis(value as i64)
-            .map(Self)
+        chrono::DateTime::from_timestamp_millis(value as i64).map(Self)
     }
-    
+
     pub fn to_rfc3339(&self) -> String {
         self.0.to_rfc3339_opts(chrono::SecondsFormat::Secs, false)
     }
@@ -79,7 +78,6 @@ impl std::ops::Add<chrono::Duration> for Timestamp {
     }
 }
 
-
 impl From<Timestamp> for u64 {
     fn from(value: Timestamp) -> Self {
         value.timestamp_millis()
@@ -89,15 +87,14 @@ impl From<Timestamp> for u64 {
 impl TryFrom<u64> for Timestamp {
     type Error = String;
     fn try_from(value: u64) -> Result<Self, Self::Error> {
-        Self::from_timestamp_millis(value)
-            .ok_or(format!("Invalid timestamp: {}", value))
+        Self::from_timestamp_millis(value).ok_or(format!("Invalid timestamp: {}", value))
     }
 }
 
 impl redis::ToRedisArgs for Timestamp {
     fn write_redis_args<W>(&self, out: &mut W)
     where
-        W: ?Sized + RedisWrite
+        W: ?Sized + RedisWrite,
     {
         self.timestamp_millis().write_redis_args(out)
     }

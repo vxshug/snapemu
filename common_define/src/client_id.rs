@@ -10,5 +10,3 @@ impl ClientId {
         Self(GLOBAL_CLIENT_ID_COUNT.fetch_add(1, Ordering::SeqCst))
     }
 }
-
-

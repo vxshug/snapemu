@@ -1,20 +1,19 @@
-use serde::{Deserialize, Serialize};
-use serde_repr::{Deserialize_repr, Serialize_repr};
 use crate::event::lora_gateway::GatewayEvent;
 use crate::event::lora_node::{DownLinkData, JoinAccept, JoinRequest, UplinkData};
 use crate::Id;
+use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
-
-pub mod lora_node;
-pub mod lora_gateway;
 mod log;
-pub use log::PlatformLog;
+pub mod lora_gateway;
+pub mod lora_node;
 use crate::db::Eui;
+pub use log::PlatformLog;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct DeviceEvent {
     pub device: Id,
-    pub event: DeviceEventType
+    pub event: DeviceEventType,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -25,20 +24,20 @@ pub enum DeviceEventType {
     UplinkData(UplinkData),
     DownLinkData(DownLinkData),
     Gateway(GatewayEvent),
-    SnapDevice(SnapEvent)
+    SnapDevice(SnapEvent),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SnapEvent {
     pub eui: Eui,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 #[derive(Serialize_repr, Deserialize_repr, Clone)]
 #[repr(u8)]
 pub enum DeviceType {
     LoRaNode = 1,
-    Snap = 2
+    Snap = 2,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

@@ -1,34 +1,16 @@
-use std::ops::Deref;
 use crate::decode::{CustomDecodeDataType, DecodeDataType};
+use std::ops::Deref;
 
-#[derive(
-    Debug,
-    Clone,
-    serde::Serialize,
-    serde::Deserialize,
-    Default,
-    PartialEq,
-    Eq
-)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct DecodeMap(pub Vec<CodeMapItem>);
-#[derive(
-    Debug,
-    Clone,
-    serde::Serialize,
-    serde::Deserialize,
-    Default,
-    PartialEq,
-    Eq
-)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct CustomDecodeMap(pub Vec<CustomMapItem>);
 
 impl std::convert::From<CustomDecodeMap> for sea_orm::Value {
     fn from(source: CustomDecodeMap) -> Self {
-        sea_orm::Value::Json(
-            Some(Box::new(serde_json::to_value(source).unwrap_or_default()))
-        )
+        sea_orm::Value::Json(Some(Box::new(serde_json::to_value(source).unwrap_or_default())))
     }
 }
 
@@ -37,8 +19,10 @@ impl sea_orm::TryGetable for CustomDecodeMap {
         res: &sea_orm::QueryResult,
         idx: I,
     ) -> std::result::Result<Self, sea_orm::TryGetError> {
-        <serde_json::Value as sea_orm::TryGetable>::try_get_by(res, idx)
-            .and_then(|v| serde_json::from_value(v).map_err(|e| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(e.to_string()))))
+        <serde_json::Value as sea_orm::TryGetable>::try_get_by(res, idx).and_then(|v| {
+            serde_json::from_value(v)
+                .map_err(|e| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(e.to_string())))
+        })
     }
 }
 
@@ -65,13 +49,9 @@ impl Deref for DecodeMap {
     }
 }
 
-
-
 impl std::convert::From<DecodeMap> for sea_orm::Value {
     fn from(source: DecodeMap) -> Self {
-        sea_orm::Value::Json(
-            Some(Box::new(serde_json::to_value(source).unwrap_or_default()))
-        )
+        sea_orm::Value::Json(Some(Box::new(serde_json::to_value(source).unwrap_or_default())))
     }
 }
 
@@ -80,8 +60,10 @@ impl sea_orm::TryGetable for DecodeMap {
         res: &sea_orm::QueryResult,
         idx: I,
     ) -> std::result::Result<Self, sea_orm::TryGetError> {
-        <serde_json::Value as sea_orm::TryGetable>::try_get_by(res, idx)
-            .and_then(|v| serde_json::from_value(v).map_err(|e| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(e.to_string()))))
+        <serde_json::Value as sea_orm::TryGetable>::try_get_by(res, idx).and_then(|v| {
+            serde_json::from_value(v)
+                .map_err(|e| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(e.to_string())))
+        })
     }
 }
 
@@ -101,14 +83,7 @@ impl sea_orm::sea_query::ValueType for DecodeMap {
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    serde::Serialize,
-    serde::Deserialize,
-    PartialEq,
-    Eq
-)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct CodeMapItem {
     pub id: u32,
     pub name: String,
@@ -116,14 +91,7 @@ pub struct CodeMapItem {
     pub t: DecodeDataType,
 }
 
-#[derive(
-    Debug,
-    Clone,
-    serde::Serialize,
-    serde::Deserialize,
-    PartialEq,
-    Eq
-)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct CustomMapItem {
     pub id: u32,
     pub name: String,

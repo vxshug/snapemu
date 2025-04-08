@@ -6,7 +6,7 @@ use sea_orm::TransactionTrait;
 use tracing::instrument;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
-
+use common_define::time::Timestamp;
 use crate::service::device::device::{
     DeviceCreate, DeviceInfo, DeviceModify, DeviceResp, DeviceSource, DeviceWithAuth,
     MQTTDeviceInfo,
@@ -14,7 +14,7 @@ use crate::service::device::device::{
 
 use crate::cache::DeviceCache;
 use crate::error::{ApiError, ApiResponseResult};
-use crate::service::device::group::{DeviceGroupResp, DeviceGroupService};
+use crate::service::device::group::{cmp_period, DeviceGroupResp, DeviceGroupService};
 use crate::service::device::DeviceService;
 use crate::service::lorawan::{LoRaGateService, LoRaNodeService};
 use crate::service::mqtt::MQTTService;
@@ -22,9 +22,11 @@ use crate::service::snap::SnapDeviceService;
 use crate::{get_current_user, tt, AppState, AppString, GLOBAL_PRODUCT_NAME};
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new()
-        .routes(routes!(get_all_device, post_device))
-        .routes(routes!(get_device, put_device, delete_device))
+    OpenApiRouter::new().routes(routes!(get_all_device, post_device)).routes(routes!(
+        get_device,
+        put_device,
+        delete_device
+    ))
 }
 
 /// Get all devices
@@ -103,7 +105,8 @@ async fn get_device(
         id: device.id.into(),
         name: device.name.into(),
         blue_name: None,
-        online: device.online.into(),
+        online: Some(cmp_period(device.period, Timestamp::now().timestamp_millis(), &device.active_time)),
+        period: device.period.into(),
         charge: None,
         battery: None,
         description: device.description.into(),
@@ -120,7 +123,7 @@ async fn get_device(
         device_type: device.device_type.into(),
         product_type: None,
         create_time: device.create_time.into(),
-        active_time: device.active_time.into(),
+        active_time: device.active_time,
         data: None,
         script: device.script,
         product_id,
@@ -229,4 +232,3 @@ async fn put_device(
 
     Ok(String::new().into())
 }
-

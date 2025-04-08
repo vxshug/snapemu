@@ -1,36 +1,30 @@
-use tracing::{instrument, warn};
-use tracing::log::debug;
-use common_define::event::lora_gateway::GatewayStatus;
-use common_define::lorawan_bridge::{GatewayEventType, GatewayUpData, GatewayUpDataHeader, RXPK};
-use crate::{man::lora::LoRaGateManager, DeviceResult};
 use crate::event::gateway::GatewayEvent;
 use crate::man::lora::LoRaGate;
 use crate::service::lorawan_node::{node_data, PushData};
+use crate::{man::lora::LoRaGateManager, DeviceResult};
+use common_define::event::lora_gateway::GatewayStatus;
+use common_define::lorawan_bridge::{GatewayEventType, GatewayUpData, GatewayUpDataHeader, RXPK};
+use tracing::log::debug;
+use tracing::{instrument, warn};
 
-pub(crate) fn gateway_event(
-    event: GatewayUpData,
-)  {
+pub(crate) fn gateway_event(event: GatewayUpData) {
     tokio::spawn(async move {
         gateway_event_process_warp(event).await;
     });
 }
 
 #[instrument]
-async fn gateway_event_process_warp(
-    event: GatewayUpData,
-) {
+async fn gateway_event_process_warp(event: GatewayUpData) {
     if let Err(e) = gateway_event_process(event).await {
         warn!("{}", e);
     }
 }
 
-async fn gateway_event_process(
-    event: GatewayUpData,
-) -> DeviceResult {
+async fn gateway_event_process(event: GatewayUpData) -> DeviceResult {
     let mut gw = LoRaGateManager::get_gate(event.eui).await?;
     gw.update_version(event.version).await?;
     GatewayEvent::gateway_state(gw.id, event.clone()).await?;
-    
+
     let (header, event) = event.into_inner();
     match event {
         GatewayEventType::Status(status) => gateway_status(status, gw).await?,
@@ -41,12 +35,16 @@ async fn gateway_event_process(
     Ok(())
 }
 
-async fn gateway_status(status: GatewayStatus, gw: LoRaGate) -> DeviceResult  {
+async fn gateway_status(status: GatewayStatus, gw: LoRaGate) -> DeviceResult {
     debug!("gateway status");
     Ok(())
 }
 
-async fn gateway_push_data(pks: Vec<RXPK>, mut gw: LoRaGate, header: GatewayUpDataHeader) -> DeviceResult  {
+async fn gateway_push_data(
+    pks: Vec<RXPK>,
+    mut gw: LoRaGate,
+    header: GatewayUpDataHeader,
+) -> DeviceResult {
     for pk in pks {
         let rssi = pk.rssi;
         let data = PushData {
@@ -58,7 +56,7 @@ async fn gateway_push_data(pks: Vec<RXPK>, mut gw: LoRaGate, header: GatewayUpDa
             pk,
         };
         tokio::spawn(node_data(gw.clone(), rssi, data));
-    } 
+    }
     gw.push_ack(header.token, header.source.ip).await?;
     Ok(())
 }

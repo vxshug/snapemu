@@ -1,10 +1,10 @@
+use crate::error::{ApiError, ApiResult};
+use crate::{tt, AppState};
 use async_graphql::async_trait::async_trait;
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use derive_new::new;
 use redis::AsyncCommands;
-use crate::error::{ApiError, ApiResult};
-use crate::{tt, AppState};
 
 #[derive(new)]
 pub struct UserStatus {
@@ -15,21 +15,19 @@ pub struct UserStatus {
 pub struct EmailCount {
     conn: redis::aio::MultiplexedConnection,
     key: String,
-    pub count: i32
+    pub count: i32,
 }
 
 impl EmailCount {
-    
     const MAX_COUNT: i32 = 5;
-    
+
     pub fn limit(&self) -> bool {
         self.count < Self::MAX_COUNT
     }
-    
+
     pub async fn update_email_send_count(&mut self) -> ApiResult {
-        
-        let count = if self.count >= Self::MAX_COUNT  {  Self::MAX_COUNT } else { self.count + 1 };
-        
+        let count = if self.count >= Self::MAX_COUNT { Self::MAX_COUNT } else { self.count + 1 };
+
         redis::cmd("SET")
             .arg(&self.key)
             .arg(count)
@@ -42,7 +40,6 @@ impl EmailCount {
 }
 
 impl UserStatus {
-    
     fn key(email: &str) -> String {
         format!("email:{}", email)
     }
@@ -53,9 +50,7 @@ impl UserStatus {
         let k = Self::code(email, code);
         let s: Option<String> = self.conn.get(&k).await?;
         if s.is_none() {
-            return Err(ApiError::User(
-                tt!("messages.user.signup.not_valid_code")
-            ));
+            return Err(ApiError::User(tt!("messages.user.signup.not_valid_code")));
         }
         Ok(())
     }
@@ -77,16 +72,10 @@ impl UserStatus {
         }
         let code = hex::encode(code);
         let k = Self::code(email, &code);
-        redis::cmd("SET")
-            .arg(&k)
-            .arg("")
-            .arg("EX")
-            .arg(100)
-            .query_async(&mut conn)
-            .await?;
+        redis::cmd("SET").arg(&k).arg("").arg("EX").arg(100).query_async(&mut conn).await?;
         Ok(code)
     }
-    
+
     pub async fn email_send_count(&self, email: &str) -> ApiResult<EmailCount> {
         let k = Self::key(email);
         let mut conn = self.conn.clone();
@@ -98,7 +87,10 @@ impl UserStatus {
 #[async_trait]
 impl FromRequestParts<AppState> for UserStatus {
     type Rejection = ApiError;
-    async fn from_request_parts(_parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        _parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let conn = state.redis.get().await?;
         Ok(Self::new(conn))
     }

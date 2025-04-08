@@ -1,10 +1,10 @@
-use aes::Aes128;
+use crate::protocol::snap::CustomError;
+use aes::cipher::KeyIvInit;
 use aes::cipher::StreamCipher;
+use aes::Aes128;
+use base64::Engine;
 use cmac::{Cmac, Mac};
 use common_define::db::{Eui, Key};
-use aes::cipher::KeyIvInit;
-use base64::Engine;
-use crate::protocol::snap::CustomError;
 
 fn check_version(version: u8) -> bool {
     version == 1
@@ -32,7 +32,10 @@ fn get_data_start(data: &[u8]) -> Result<usize, CustomError> {
             if 18 + 1 + payload_len == len {
                 Ok(15)
             } else {
-                Err(CustomError::Format(format!("payload length is {}, but data length is {}", payload_len, len)))
+                Err(CustomError::Format(format!(
+                    "payload length is {}, but data length is {}",
+                    payload_len, len
+                )))
             }
         }
         253 => {
@@ -40,18 +43,30 @@ fn get_data_start(data: &[u8]) -> Result<usize, CustomError> {
             if 18 + 3 + b2_payload_len == len {
                 Ok(17)
             } else {
-                Err(CustomError::Format(format!("payload length is {}, but data length is {}", payload_len, len)))
+                Err(CustomError::Format(format!(
+                    "payload length is {}, but data length is {}",
+                    payload_len, len
+                )))
             }
         }
         254 => {
-            let b4_payload_len = data[15] as u32 | ((data[16] as u32) << 8) | ((data[17] as u32) << 16) | ((data[18] as u32) << 24);
+            let b4_payload_len = data[15] as u32
+                | ((data[16] as u32) << 8)
+                | ((data[17] as u32) << 16)
+                | ((data[18] as u32) << 24);
             if 18 + 5 + b4_payload_len == len {
                 Ok(19)
             } else {
-                Err(CustomError::Format(format!("payload length is {}, but data length is {}", payload_len, len)))
+                Err(CustomError::Format(format!(
+                    "payload length is {}, but data length is {}",
+                    payload_len, len
+                )))
             }
         }
-        _ => Err(CustomError::Format(format!("payload length is {}, but data length is {}", payload_len, len)))
+        _ => Err(CustomError::Format(format!(
+            "payload length is {}, but data length is {}",
+            payload_len, len
+        ))),
     }
 }
 
@@ -61,13 +76,13 @@ fn get_data_start(data: &[u8]) -> Result<usize, CustomError> {
 //     aes_enc: &dyn keys::Encrypter,
 // ) {
 //     let len = end - start;
-// 
+//
 //     let mut a = [0u8; 16];
 //     generate_helper_block(phy_payload, 0x01, fcnt, &mut a[..]);
-// 
+//
 //     let mut s = [0u8; 16];
 //     let s_block = GenericArray::from_mut_slice(&mut s[..]);
-// 
+//
 //     let mut ctr = 1;
 //     for i in 0..len {
 //         let j = i & 0x0f;
@@ -92,7 +107,7 @@ pub struct UpData {
     payload_start: usize,
     payload: Vec<u8>,
     bytes: Vec<u8>,
-    mic: [u8; 4]
+    mic: [u8; 4],
 }
 
 impl UpData {
@@ -110,20 +125,9 @@ impl UpData {
         payload.extend_from_slice(&bytes[payload_start..payload_end]);
         let mut mic = [0; 4];
         mic.copy_from_slice(&bytes[payload_end..]);
-        Ok(Self {
-            eui,
-            enc: true,
-            p_type,
-            port,
-            option,
-            count,
-            payload_start,
-            payload,
-            bytes,
-            mic,
-        })
+        Ok(Self { eui, enc: true, p_type, port, option, count, payload_start, payload, bytes, mic })
     }
-    
+
     pub fn counter(&self) -> u16 {
         self.count
     }
@@ -143,18 +147,15 @@ impl UpData {
         black_a[12] = payload_with_header_len as u8;
         black_a[13] = (payload_with_header_len >> 8) as u8;
         black_a[15] = 0x01;
-        let mut mac = Cmac::<Aes128>::new_from_slice(&key.0.0)
-            .map_err(|_| CustomError::Key)?;
+        let mut mac = Cmac::<Aes128>::new_from_slice(&key.0 .0).map_err(|_| CustomError::Key)?;
         Mac::update(&mut mac, &black_a);
         Mac::update(&mut mac, &self.bytes[0..payload_with_header_len]);
         let result = Mac::finalize(mac);
         let buf = result.into_bytes();
-        Ok(
-            buf[0] == self.mic[0]
-                && buf[1] == self.mic[1]
-                && buf[2] == self.mic[2]
-                && buf[3] == self.mic[3]
-        )
+        Ok(buf[0] == self.mic[0]
+            && buf[1] == self.mic[1]
+            && buf[2] == self.mic[2]
+            && buf[3] == self.mic[3])
     }
 
     pub fn decode_payload(&mut self, key: &Key) -> Result<&[u8], CustomError> {
@@ -167,14 +168,14 @@ impl UpData {
             iv[12] = payload_len as u8;
             iv[13] = (payload_len >> 8) as u8;
             iv[14] = 0x01;
-            let mut cipher = ctr::Ctr128BE::<Aes128>::new(&key.0.0.into(), &iv.into());
+            let mut cipher = ctr::Ctr128BE::<Aes128>::new(&key.0 .0.into(), &iv.into());
             cipher.apply_keystream(&mut self.payload);
             Ok(&self.payload)
         } else {
             Err(CustomError::MIC)
         }
     }
-    
+
     pub fn eui(&self) -> Eui {
         self.eui
     }
@@ -195,23 +196,13 @@ impl Default for DownloadData {
 
 impl DownloadData {
     pub fn new() -> Self {
-        Self {
-            eui: Default::default(),
-            port: 0,
-            option: 0,
-            count: 0,
-        }
+        Self { eui: Default::default(), port: 0, option: 0, count: 0 }
     }
     pub fn new_with_eui(eui: Eui) -> Self {
-        Self {
-            eui,
-            port: 0,
-            option: 0,
-            count: 0,
-        }
+        Self { eui, port: 0, option: 0, count: 0 }
     }
     pub fn set_ack(mut self) -> Self {
-        self.option = self.option | 0x40;
+        self.option |= 0x40;
         self
     }
     pub fn set_eui(mut self, eui: Eui) -> Self {
@@ -229,9 +220,7 @@ impl DownloadData {
     pub fn encode_payload(&self, payload: &[u8], key: &Key) -> Result<String, CustomError> {
         let payload_len = payload.len();
         let header_and_mic_len = match payload_len {
-            download_len if download_len < 253 => {
-                19
-            }
+            download_len if download_len < 253 => 19,
             253 => 21,
             254 => 23,
             _ => {
@@ -260,12 +249,12 @@ impl DownloadData {
             buf.push((payload_len >> 24) as u8);
         }
         buf.extend_from_slice(payload);
-        self.encode(&mut buf[header_and_mic_len-4..], key)?;
+        self.encode(&mut buf[header_and_mic_len - 4..], key)?;
         let mic = self.mic(&buf, key)?;
         buf.extend_from_slice(&mic);
         Ok(base64::engine::general_purpose::STANDARD.encode(buf))
     }
-    
+
     fn encode(&self, payload: &mut [u8], key: &Key) -> Result<(), CustomError> {
         let mut iv = [0; 16];
         let payload_len = payload.len();
@@ -275,11 +264,11 @@ impl DownloadData {
         iv[12] = payload_len as u8;
         iv[13] = (payload_len >> 8) as u8;
         iv[14] = 0x00;
-        let mut cipher = ctr::Ctr128BE::<Aes128>::new(&key.0.0.into(), &iv.into());
+        let mut cipher = ctr::Ctr128BE::<Aes128>::new(&key.0 .0.into(), &iv.into());
         cipher.apply_keystream(payload);
         Ok(())
     }
-    
+
     fn mic(&self, payload_with_header: &[u8], key: &Key) -> Result<[u8; 4], CustomError> {
         let mut mic = [0; 4];
         let mut black_a = [0; 16];
@@ -290,8 +279,7 @@ impl DownloadData {
         black_a[12] = payload_with_header_len as u8;
         black_a[13] = (payload_with_header_len >> 8) as u8;
         black_a[15] = 0x00;
-        let mut mac = Cmac::<Aes128>::new_from_slice(&key.0.0)
-            .map_err(|_| CustomError::Key)?;
+        let mut mac = Cmac::<Aes128>::new_from_slice(&key.0 .0).map_err(|_| CustomError::Key)?;
         Mac::update(&mut mac, &black_a);
         Mac::update(&mut mac, payload_with_header);
         let result = Mac::finalize(mac).into_bytes();
@@ -300,17 +288,18 @@ impl DownloadData {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use crate::protocol::snap::payload::{DownloadData, UpData};
     use base64::Engine;
     use common_define::db::{Eui, Key};
-    use crate::protocol::snap::payload::{DownloadData, UpData};
+    use std::str::FromStr;
 
     #[test]
     fn test_decode() {
-        let bytes = base64::engine::general_purpose::STANDARD.decode("ARIiIiIiIiIiAAAAAQAd8JBLbxv+9wUlTAQTlVq5ZlQBfZjO4yiC0xDR9/nxotcb").unwrap();
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode("ARIiIiIiIiIiAAAAAQAd8JBLbxv+9wUlTAQTlVq5ZlQBfZjO4yiC0xDR9/nxotcb")
+            .unwrap();
         let key = Key::from_str("12345678888888888888888888888888").unwrap();
         let mut up = UpData::new(bytes).unwrap();
         let s = up.decode_payload(&key).unwrap();
@@ -321,8 +310,7 @@ mod tests {
     fn test_encode() {
         let key = Key::from_str("12345678888888888888888888888888").unwrap();
         let payload = b"1234567890abcdefghudfvertexcv";
-        let down = DownloadData::new()
-            .set_eui(Eui::from_str("2222222222222212").unwrap());
+        let down = DownloadData::new().set_eui(Eui::from_str("2222222222222212").unwrap());
         let s = down.encode_payload(payload, &key).unwrap();
         println!("{}", s);
     }

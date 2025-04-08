@@ -1,11 +1,11 @@
+use crate::db::DbErr;
+use redis::{FromRedisValue, RedisResult, RedisWrite, ToRedisArgs, Value};
+use serde::de::Error;
+use serde::{Deserializer, Serializer};
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 use std::str;
 use std::str::FromStr;
-use redis::{FromRedisValue, RedisResult, RedisWrite, ToRedisArgs, Value};
-use serde::{Deserializer, Serializer};
-use serde::de::Error;
-use crate::db::{DbErr};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Key(pub lorawan::keys::AES128);
@@ -33,28 +33,30 @@ impl sea_orm::TryGetable for Key {
         res: &sea_orm::QueryResult,
         idx: I,
     ) -> std::result::Result<Self, sea_orm::TryGetError> {
-        <String as sea_orm::TryGetable>::try_get_by(res, idx)
-            .and_then(|v| {
-                if v.len() != 32 {
-                    return Err(sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(format!("invalid key length: {}", v.len()))));
-                }
-                let mut key = [0; 16];
-                hex::decode_to_slice(&v, &mut key).map_err(|e| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(e.to_string())))?;
-                Ok(Key(lorawan::keys::AES128(key)))
-            })
+        <String as sea_orm::TryGetable>::try_get_by(res, idx).and_then(|v| {
+            if v.len() != 32 {
+                return Err(sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(format!(
+                    "invalid key length: {}",
+                    v.len()
+                ))));
+            }
+            let mut key = [0; 16];
+            hex::decode_to_slice(&v, &mut key)
+                .map_err(|e| sea_orm::TryGetError::DbErr(sea_orm::DbErr::Custom(e.to_string())))?;
+            Ok(Key(lorawan::keys::AES128(key)))
+        })
     }
 }
 impl sea_orm::sea_query::ValueType for Key {
     fn try_from(v: sea_orm::Value) -> std::result::Result<Self, sea_orm::sea_query::ValueTypeErr> {
-        <String as sea_orm::sea_query::ValueType>::try_from(v)
-            .and_then(|v| {
-                if v.len() != 32 {
-                    return Err(sea_orm::sea_query::ValueTypeErr);
-                }
-                let mut key = [0; 16];
-                hex::decode_to_slice(&v, &mut key).map_err(|_e| sea_orm::sea_query::ValueTypeErr)?;
-                Ok(Key(lorawan::keys::AES128(key)))
-            })
+        <String as sea_orm::sea_query::ValueType>::try_from(v).and_then(|v| {
+            if v.len() != 32 {
+                return Err(sea_orm::sea_query::ValueTypeErr);
+            }
+            let mut key = [0; 16];
+            hex::decode_to_slice(&v, &mut key).map_err(|_e| sea_orm::sea_query::ValueTypeErr)?;
+            Ok(Key(lorawan::keys::AES128(key)))
+        })
     }
     fn type_name() -> std::string::String {
         "Key".to_owned()
@@ -78,21 +80,30 @@ impl Key {
 }
 
 impl serde::Serialize for Key {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let s = self.to_string();
         serializer.serialize_str(&s)
     }
 }
 
 impl<'de> serde::Deserialize<'de> for Key {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         let s = <&str as serde::Deserialize>::deserialize(deserializer)?;
-        Ok( s.parse().map_err(D::Error::custom)?)
+        s.parse().map_err(D::Error::custom)
     }
 }
 
 impl ToRedisArgs for Key {
-    fn write_redis_args<W>(&self, out: &mut W) where W: ?Sized + RedisWrite {
+    fn write_redis_args<W>(&self, out: &mut W)
+    where
+        W: ?Sized + RedisWrite,
+    {
         self.to_string().write_redis_args(out)
     }
 }
@@ -100,14 +111,19 @@ impl ToRedisArgs for Key {
 impl FromRedisValue for Key {
     fn from_redis_value(v: &Value) -> RedisResult<Self> {
         let u = String::from_redis_value(v)?;
-        u.parse()
-            .map_err(|e: DbErr| redis::RedisError::from((redis::ErrorKind::ResponseError, "redis parse key", e.to_string())))
+        u.parse().map_err(|e: DbErr| {
+            redis::RedisError::from((
+                redis::ErrorKind::ResponseError,
+                "redis parse key",
+                e.to_string(),
+            ))
+        })
     }
 }
 
 impl Display for Key {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", hex::encode_upper(self.0.0))
+        write!(f, "{}", hex::encode_upper(self.0 .0))
     }
 }
 
@@ -118,8 +134,7 @@ impl TryFrom<&str> for Key {
             return Err(DbErr::Len(format!("Key most 32 byte, found '{}'", value)));
         }
         let mut b = [0; 16];
-        hex::decode_to_slice(value, &mut b)
-            .map_err(|_| DbErr::Parse)?;
+        hex::decode_to_slice(value, &mut b).map_err(|_| DbErr::Parse)?;
 
         Ok(Self::new(b))
     }

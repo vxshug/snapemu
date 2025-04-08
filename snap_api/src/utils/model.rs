@@ -20,15 +20,12 @@ pub(crate) struct ModelItem {
     name: HashMap<String, String>,
     pub(crate) unit: String,
     #[serde(rename = "type")]
-    pub(crate) value_type: ValueType
+    pub(crate) value_type: ValueType,
 }
 
 impl ModelItem {
     pub(crate) fn name(&self, lang: &str) -> String {
-        self.name.get(lang)
-            .or(self.name.get("en"))
-            .cloned()
-            .unwrap_or(String::from("Unkown"))
+        self.name.get(lang).or(self.name.get("en")).cloned().unwrap_or(String::from("Unkown"))
     }
 }
 

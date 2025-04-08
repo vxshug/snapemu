@@ -1,21 +1,19 @@
-use axum::extract::{Multipart, Query, State};
-use axum::Router;
-use axum::routing::{get, post};
+use crate::error::{ApiError, ApiResponseResult};
+use crate::service::user::{save_picture, Picture};
+use crate::{tt, AppState};
+use axum::extract::{Multipart, State};
+use axum::routing::get;
+use common_define::db::{SnapProductInfoActiveModel, SnapProductInfoEntity};
+use common_define::time::Timestamp;
+use common_define::Id;
 use futures_util::FutureExt;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use serde::Serialize;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
-use common_define::db::{SnapProductInfoActiveModel, SnapProductInfoEntity};
-use common_define::Id;
-use common_define::time::Timestamp;
-use crate::{tt, AppState};
-use crate::error::{ApiError, ApiResponseResult};
-use crate::service::user::{save_picture, Picture};
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new()
-        .route("/", get(get_all_product).post(post_product))
+    OpenApiRouter::new().route("/", get(get_all_product).post(post_product))
 }
 
 #[derive(Serialize)]
@@ -52,9 +50,7 @@ pub struct ProductApi;
             (status = 0, description = "group page"),
     )
 )]
-async fn get_all_product(
-    State(state): State<AppState>,
-) -> ApiResponseResult<ProductInfo> {
+async fn get_all_product(State(state): State<AppState>) -> ApiResponseResult<ProductInfo> {
     let product: Vec<_> = SnapProductInfoEntity::find()
         .all(&state.db)
         .await?
@@ -68,11 +64,7 @@ async fn get_all_product(
             create_time: item.create_time,
         })
         .collect();
-    Ok(ProductInfo {
-        page: 0,
-        count: product.len() as _,
-        product,
-    }.into())
+    Ok(ProductInfo { page: 0, count: product.len() as _, product }.into())
 }
 
 #[derive(utoipa::ToSchema)]
@@ -95,31 +87,23 @@ struct UpProduct {
 )]
 async fn post_product(
     State(state): State<AppState>,
-    mut multipart: Multipart
+    mut multipart: Multipart,
 ) -> ApiResponseResult<ProductInfoItem> {
     let mut sku: Option<String> = None;
     let mut name: Option<String> = None;
     let mut describption: Option<String> = None;
     let mut product_image: Option<_> = None;
-    
-    while let Some(mut field) = multipart.next_field().await.map_err(|e| ApiError::User(e.to_string().into()))? {
+
+    while let Some(field) =
+        multipart.next_field().await.map_err(|e| ApiError::User(e.to_string().into()))?
+    {
         if let Some(field_name) = field.name() {
             match field_name {
-                "sku" => {
-                    sku = field.text().await.ok()
-                }
-                "name" => {
-                    name = field.text().await.ok()
-                }
-                "description" => {
-                    describption = field.text().await.ok()
-                }
-                "image" => {
-                    product_image = field.bytes().await.ok()
-                }
-                el => {
-                    return Err(ApiError::User(format!("unsupported field: {:?}", el).into()))
-                }
+                "sku" => sku = field.text().await.ok(),
+                "name" => name = field.text().await.ok(),
+                "description" => describption = field.text().await.ok(),
+                "image" => product_image = field.bytes().await.ok(),
+                el => return Err(ApiError::User(format!("unsupported field: {:?}", el).into())),
             }
         }
     }
@@ -128,17 +112,13 @@ async fn post_product(
     let description = describption.ok_or(ApiError::User("description not found".into()))?;
     let product_image = product_image.ok_or(ApiError::User("image not found".into()))?;
     let format = image::guess_format(product_image.as_ref())
-        .or(Err(ApiError::User(
-            tt!("messages.user.picture.format")
-        )))?;
+        .or(Err(ApiError::User(tt!("messages.user.picture.format"))))?;
 
     let suffix = match format {
         image::ImageFormat::Png => "png",
         image::ImageFormat::Jpeg => "jpeg",
         image::ImageFormat::WebP => "webp",
-        _ => return Err(ApiError::User(
-            tt!("messages.user.picture.format")
-        ))
+        _ => return Err(ApiError::User(tt!("messages.user.picture.format"))),
     };
     let now = Timestamp::now();
     let picture = Picture::new(suffix, format.to_mime_type(), product_image);
@@ -150,7 +130,7 @@ async fn post_product(
         name: ActiveValue::Set(name),
         description: ActiveValue::Set(description),
         image: ActiveValue::Set(product_url),
-        create_time: ActiveValue::Set(now)
+        create_time: ActiveValue::Set(now),
     };
     let s = product.insert(&state.db).await.map(|item| ProductInfoItem {
         id: item.id,

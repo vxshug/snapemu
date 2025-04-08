@@ -1,23 +1,27 @@
-use std::str::FromStr;
-use axum::extract::{Path, Query, State};
-use axum::Router;
+use crate::api::{SnJson, SnPath};
+use crate::error::{ApiError, ApiResponseResult};
+use crate::AppState;
+use axum::extract::{Query, State};
 use axum::routing::get;
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, ModelTrait, PaginatorTrait, QueryOrder};
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-use tracing::warn;
-use utoipa::OpenApi;
-use utoipa_axum::router::OpenApiRouter;
-use common_define::db::{DecodeMap, DecodeScriptEntity, DeviceLoraNodeEntity, DevicesColumn, DevicesEntity, Eui, Key, LoRaAddr, SnapDeviceEntity, UsersEntity};
-use common_define::Id;
+use common_define::db::{
+    DecodeMap, DecodeScriptEntity, DeviceLoraNodeEntity, DevicesColumn, DevicesEntity, Eui, Key,
+    SnapDeviceEntity, UsersEntity,
+};
 use common_define::lora::{LoRaJoinType, LoRaRegion};
 use common_define::product::{DeviceType, ProductType};
 use common_define::time::Timestamp;
+use common_define::Id;
 use device_info::lorawan::{GatewayInfo, NodeInfo};
 use device_info::snap::SnapDeviceInfo;
-use crate::api::{SnJson, SnPath};
-use crate::AppState;
-use crate::error::{ApiError, ApiResponseResult};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, ModelTrait, PaginatorTrait,
+    QueryOrder,
+};
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+use tracing::warn;
+use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
 
 pub(crate) fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
@@ -48,7 +52,7 @@ struct DevicePageItem {
     pub description: String,
     pub creator: Id,
     pub enable: bool,
-    pub online: bool,
+    pub period: i32,
     pub script: Option<Id>,
     pub device_type: DeviceType,
     pub active_time: Option<Timestamp>,
@@ -87,7 +91,7 @@ struct DeviceInfoBody {
     pub creator: Option<DeviceCreatorBody>,
     pub creator_id: Id,
     pub enable: bool,
-    pub online: bool,
+    pub period: i32,
     pub script: Option<DeviceScriptBody>,
     pub script_id: Option<Id>,
     pub device_type: DeviceType,
@@ -101,11 +105,11 @@ struct DeviceInfoBody {
 enum DeviceTypeInfoBody {
     LoRaNode(NodeInfo),
     LoRaGateway(GatewayInfo),
-    Snap(SnapDeviceInfo)
+    Snap(SnapDeviceInfo),
 }
 
 /// Device information that can be modified
-#[derive(Deserialize, Serialize,  Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct DeviceChangeBody {
     /// device name.
     pub name: Option<String>,
@@ -133,31 +137,31 @@ struct DeviceChangeBody {
     /// LoRaNode. app_skey
     // #[schema(max_length = 32, min_length=32, pattern="^[0-9A-F]{32}$")]
     pub app_skey: Option<String>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub class_b: Option<bool>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub class_c: Option<bool>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub adr: Option<bool>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub rx1_delay: Option<i16>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub des_rx1_delay: Option<i16>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub rx1_dro: Option<i16>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub des_rx1_dro: Option<i16>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub rx2_dr: Option<i16>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub des_rx2_dr: Option<i16>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub rx2_freq: Option<i32>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub des_rx2_freq: Option<i32>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub d_retry: Option<i16>,
-    /// LoRaNode. 
+    /// LoRaNode.
     pub c_retry: Option<i16>,
     /// LoRaNode. Custom, Monitor, Controller, Gate
     // #[schema(pattern="^Custom|Monitor|Controller|Gate$")]
@@ -170,16 +174,13 @@ struct DeviceChangeBody {
     pub up_dr: Option<i16>,
     /// LoRaNode.
     pub time_zone: Option<i32>,
-    /// Snap. 
+    /// Snap.
     // #[schema(max_length = 32, min_length=32, pattern="^[0-9A-F]{32}$")]
-    pub key: Option<String>
+    pub key: Option<String>,
 }
 
-
 #[derive(OpenApi)]
-#[openapi(
-    paths(get_all_devices, get_devices_count, get_device_info,put_device_info),
-)]
+#[openapi(paths(get_all_devices, get_devices_count, get_device_info, put_device_info))]
 pub struct DeviceApi;
 
 ///
@@ -194,13 +195,9 @@ pub struct DeviceApi;
             (status = 0, description = "device count"),
     )
 )]
-async fn get_devices_count(
-    State(state): State<AppState>
-) -> ApiResponseResult<DeviceCountBody> {
+async fn get_devices_count(State(state): State<AppState>) -> ApiResponseResult<DeviceCountBody> {
     let count = DevicesEntity::find().count(&state.db).await?;
-    Ok(DeviceCountBody {
-        count
-    }.into())
+    Ok(DeviceCountBody { count }.into())
 }
 
 ///
@@ -220,35 +217,33 @@ async fn get_all_devices(
     Query(page): Query<DeviceQuery>,
 ) -> ApiResponseResult<DevicePages> {
     let page = page.page.unwrap_or(0);
-    let device_pages = DevicesEntity::find()
-        .order_by_asc(DevicesColumn::Id)
-        .paginate(&state.db, 50);
+    let device_pages =
+        DevicesEntity::find().order_by_asc(DevicesColumn::Id).paginate(&state.db, 50);
     let page_count = device_pages.num_pages().await?;
-    if page_count < page { 
-        return Err(ApiError::User(format!("page {} is more than max {}", page, page_count).into()))
+    if page_count < page {
+        return Err(ApiError::User(
+            format!("page {} is more than max {}", page, page_count).into(),
+        ));
     }
     let devices = device_pages.fetch_page(page).await?;
-    
-    let v = devices.into_iter().map(|it| {
-        DevicePageItem {
+
+    let v = devices
+        .into_iter()
+        .map(|it| DevicePageItem {
             id: it.id,
             eui: it.eui,
             name: it.name,
             description: it.description,
             creator: it.creator,
             enable: it.enable,
-            online: it.online,
+            period: it.period,
             script: it.script,
             device_type: it.device_type,
             active_time: it.active_time,
             create_time: it.create_time,
-        }
-    }).collect();
-    Ok(DevicePages {
-        page: page,
-        count: page_count,
-        devices: v,
-    }.into())
+        })
+        .collect();
+    Ok(DevicePages { page, count: page_count, devices: v }.into())
 }
 
 ///
@@ -267,18 +262,14 @@ async fn get_device_info(
     State(state): State<AppState>,
     SnPath(id): SnPath<Id>,
 ) -> ApiResponseResult<DeviceInfoBody> {
-    let device = DevicesEntity::find_by_id(id)
-        .one(&state.db)
-        .await?
-        .ok_or_else(|| {
-            warn!("Failed to find device with id {}", id);
-            ApiError::User("Device not found".into())
-        })?;
-    
+    let device = DevicesEntity::find_by_id(id).one(&state.db).await?.ok_or_else(|| {
+        warn!("Failed to find device with id {}", id);
+        ApiError::User("Device not found".into())
+    })?;
+
     let script = match device.script {
-        Some(script) => DecodeScriptEntity::find_by_id(script)
-            .one(&state.db).await?
-            .map(|it| DeviceScriptBody {
+        Some(script) => DecodeScriptEntity::find_by_id(script).one(&state.db).await?.map(|it| {
+            DeviceScriptBody {
                 id: it.id,
                 script: it.script,
                 lang: it.lang,
@@ -287,64 +278,66 @@ async fn get_device_info(
                 map: it.map,
                 create_time: it.create_time,
                 modify_time: it.modify_time,
-            }),
-        None => None
+            }
+        }),
+        None => None,
     };
-    
+
     let creator = UsersEntity::find_by_id(device.creator)
         .one(&state.db)
         .await?
-        .map(|user| DeviceCreatorBody { username: user.user_login});
-    
+        .map(|user| DeviceCreatorBody { username: user.user_login });
+
     let conn = &mut state.redis.get().await?;
     let info = match device.device_type {
-        DeviceType::LoRaNode => {
-            match NodeInfo::load_by_eui(device.eui, conn).await? {
-                None => {
-                    let node = device.find_related(DeviceLoraNodeEntity)
-                        .one(&state.db)
-                        .await?
-                        .ok_or_else(|| {
+        DeviceType::LoRaNode => match NodeInfo::load_by_eui(device.eui, conn).await? {
+            None => {
+                let node =
+                    device.find_related(DeviceLoraNodeEntity).one(&state.db).await?.ok_or_else(
+                        || {
                             warn!("Failed to find device with id {}", id);
                             ApiError::User("Device not found".into())
-                        })?;
-                    DeviceTypeInfoBody::LoRaNode(NodeInfo::register_to_redis(node, device.clone(), conn).await?)
-                }
-                Some(info) => DeviceTypeInfoBody::LoRaNode(info)
+                        },
+                    )?;
+                DeviceTypeInfoBody::LoRaNode(
+                    NodeInfo::register_to_redis(node, device.clone(), conn).await?,
+                )
             }
-        }
-        DeviceType::LoRaGate => {
-            match GatewayInfo::load(device.eui, conn).await? {
-                None => {
-                    let info = GatewayInfo::new(device.id, 0, 0, Timestamp::now(), None, None);
-                    info.register(device.eui, conn).await?;
-                    DeviceTypeInfoBody::LoRaGateway(info)
-                }
-                Some(info) => { DeviceTypeInfoBody::LoRaGateway(info) }
+            Some(info) => DeviceTypeInfoBody::LoRaNode(info),
+        },
+        DeviceType::LoRaGate => match GatewayInfo::load(device.eui, conn).await? {
+            None => {
+                let info = GatewayInfo::new(device.id, 0, 0, Timestamp::now(), None, None);
+                info.register(device.eui, conn).await?;
+                DeviceTypeInfoBody::LoRaGateway(info)
             }
-        }
-        DeviceType::MQTT => {
-            return Err(ApiError::User("The device is not supported".into()))
-        }
-        DeviceType::Snap => {
-            match SnapDeviceInfo::load(device.eui, conn).await? {
-                None => {
-                    let snap = device.find_related(SnapDeviceEntity)
-                        .one(&state.db)
-                        .await?
-                        .ok_or_else(|| {
-                            warn!("Failed to find device with id {}", id);
-                            ApiError::User("Device not found".into())
-                        })?;
-                    let snap = SnapDeviceInfo::new(device.id, snap.key, Some(Timestamp::now()), 0, None, device.script, None);
-                    snap.register(device.eui, conn).await?;
-                    DeviceTypeInfoBody::Snap(snap)
-                }
-                Some(info) => { DeviceTypeInfoBody::Snap(info) }
+            Some(info) => DeviceTypeInfoBody::LoRaGateway(info),
+        },
+        DeviceType::MQTT => return Err(ApiError::User("The device is not supported".into())),
+        DeviceType::Snap => match SnapDeviceInfo::load(device.eui, conn).await? {
+            None => {
+                let snap = device.find_related(SnapDeviceEntity).one(&state.db).await?.ok_or_else(
+                    || {
+                        warn!("Failed to find device with id {}", id);
+                        ApiError::User("Device not found".into())
+                    },
+                )?;
+                let snap = SnapDeviceInfo::new(
+                    device.id,
+                    snap.key,
+                    Some(Timestamp::now()),
+                    0,
+                    None,
+                    device.script,
+                    None,
+                );
+                snap.register(device.eui, conn).await?;
+                DeviceTypeInfoBody::Snap(snap)
             }
-        }
+            Some(info) => DeviceTypeInfoBody::Snap(info),
+        },
     };
-    
+
     Ok(DeviceInfoBody {
         id,
         eui: device.eui,
@@ -353,14 +346,15 @@ async fn get_device_info(
         creator,
         creator_id: device.creator,
         enable: device.enable,
-        online: device.online,
+        period: device.period,
         script,
         script_id: device.script,
         device_type: device.device_type,
         active_time: device.active_time,
         create_time: device.create_time,
         info: Some(info),
-    }.into())
+    }
+    .into())
 }
 
 ///
@@ -378,20 +372,18 @@ async fn get_device_info(
 async fn put_device_info(
     State(state): State<AppState>,
     SnPath(id): SnPath<Id>,
-    SnJson(info): SnJson<DeviceChangeBody>
+    SnJson(info): SnJson<DeviceChangeBody>,
 ) -> ApiResponseResult<DeviceChangeBody> {
     let mut body = DeviceChangeBody::default();
-    let device = DevicesEntity::find_by_id(id)
-        .one(&state.db)
-        .await?
-        .ok_or_else(|| {
-            warn!("Failed to find device with id {}", id);
-            ApiError::User("Device not found".into())
-        })?;
-    
+    let device = DevicesEntity::find_by_id(id).one(&state.db).await?.ok_or_else(|| {
+        warn!("Failed to find device with id {}", id);
+        ApiError::User("Device not found".into())
+    })?;
+
     match device.device_type {
         DeviceType::LoRaNode => {
-            let node = device.find_related(DeviceLoraNodeEntity)
+            let node = device
+                .find_related(DeviceLoraNodeEntity)
                 .one(&state.db)
                 .await?
                 .ok_or_else(|| ApiError::User("invalid device".into()))?;
@@ -416,7 +408,14 @@ async fn put_device_info(
                     }
                 };
             }
-            parse_from_info!((region, LoRaRegion),(join_type, LoRaJoinType), (app_eui, Eui),(app_key, Key),(nwk_skey, Key),(app_skey, Key));
+            parse_from_info!(
+                (region, LoRaRegion),
+                (join_type, LoRaJoinType),
+                (app_eui, Eui),
+                (app_key, Key),
+                (nwk_skey, Key),
+                (app_skey, Key)
+            );
 
             macro_rules! update_node {
                 ($i:ident) => {
@@ -448,33 +447,33 @@ async fn put_device_info(
                 node.update(&state.db).await?;
             }
         }
-        DeviceType::LoRaGate => {
-            
-        }
-        DeviceType::MQTT => {
-            
-        }
+        DeviceType::LoRaGate => {}
+        DeviceType::MQTT => {}
         DeviceType::Snap => {
-            let snap = device.find_related(SnapDeviceEntity)
+            let snap = device
+                .find_related(SnapDeviceEntity)
                 .one(&state.db)
                 .await?
                 .ok_or_else(|| ApiError::User("invalid device".into()))?;
             let mut snap = snap.into_active_model();
             let key = match info.key {
                 Some(key) => {
-                    let r = Some(Key::from_str(&key).map_err(|_| ApiError::User("invalid key".into()))?);
+                    let r = Some(
+                        Key::from_str(&key).map_err(|_| ApiError::User("invalid key".into()))?,
+                    );
                     body.key = Some(key);
                     r
-                },
+                }
                 None => None,
             };
             if let Some(key) = key {
                 let redis = &mut state.redis.get().await?;
-                SnapDeviceInfo::update_by_eui(device.eui, SnapDeviceInfo::key(), &key, redis).await?;
+                SnapDeviceInfo::update_by_eui(device.eui, SnapDeviceInfo::key(), &key, redis)
+                    .await?;
                 snap.key = ActiveValue::Set(key);
-            } 
+            }
         }
     }
-    
+
     Ok(body.into())
 }

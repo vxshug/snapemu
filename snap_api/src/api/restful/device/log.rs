@@ -6,8 +6,7 @@ use crate::{get_current_user, tt, AppState};
 use axum::extract::State;
 use axum::response::sse::{Event, KeepAlive};
 use axum::response::{IntoResponse, Response, Sse};
-use axum::routing::get;
-use axum::{Extension, Router};
+use axum::Extension;
 use common_define::Id;
 use tokio_stream::StreamExt;
 use tracing::warn;
@@ -47,9 +46,6 @@ async fn log(
         }
     });
     let mut response = Sse::new(s).keep_alive(KeepAlive::default()).into_response();
-    response
-        .headers_mut()
-        .insert("X-Accel-Buffering", "no".parse().unwrap()); // nginx
+    response.headers_mut().insert("X-Accel-Buffering", "no".parse().unwrap()); // nginx
     Ok(response)
 }
-
