@@ -27,6 +27,8 @@ pub enum DbErr {
     Max,
 }
 
+pub use data::DataError;
+
 pub use entities::snap_device_data_name::ActiveModel as SnapDeviceDataNameActiveModel;
 pub use entities::snap_device_data_name::Column as SnapDeviceDataNameColumn;
 pub use entities::snap_device_data_name::Entity as SnapDeviceDataNameEntity;

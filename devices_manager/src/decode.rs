@@ -1,10 +1,11 @@
 use crate::man::data::{DataError, ValueType};
 use common_define::db::DbDecodeData;
 use derive_new::new;
-use rquickjs::CatchResultExt;
+use rquickjs::{CatchResultExt, Function};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use snap_model::ModelSource;
 
 fn check_data_length(bytes: &[u8]) -> Result<(), DataError> {
     let mut check_len = 0;
@@ -94,6 +95,17 @@ pub(crate) struct DeviceIO {
     pub(crate) modify: bool,
     pub(crate) mode: bool,
     pub(crate) value: bool,
+}
+
+#[derive(Default, influxdb2_derive::WriteDataPoint)]
+#[measurement = "device_data"]
+struct TsdbData {
+    #[influxdb(tag)]
+    device: u64,
+    #[influxdb(field)]
+    value: i64,
+    #[influxdb(timestamp)]
+    time: i64,
 }
 
 #[derive(Default, Debug)]
@@ -290,6 +302,24 @@ pub struct DecodeData {
     pub data: Vec<DecodeDataItem>,
 }
 
+impl DecodeData {
+    pub fn new<S: ModelSource>(decode_data: Vec<common_define::decode::DecodeData>, map: S) -> Self {
+        let mut data = Vec::new();
+        for item in decode_data {
+            let data_map = map.get_data_name(item.i);
+            data.push(DecodeDataItem {
+                v: item.v,
+                i: item.i as _,
+                name: data_map.name.format_tag(),
+                unit: data_map.unit.to_string()
+            });
+        }
+        Self {
+            data
+        }
+    }
+}
+
 impl From<DecodeData> for DbDecodeData {
     fn from(value: DecodeData) -> Self {
         Self(
@@ -319,9 +349,11 @@ fn js_to_serde_value(data: &rquickjs::Value) -> Option<common_define::decode::Va
 pub struct DecodeDataItem {
     pub v: common_define::decode::Value,
     pub i: i32,
+    pub name: String,
+    pub unit: String,
 }
 impl<'js> rquickjs::FromJs<'js> for DecodeDataItem {
-    fn from_js(_ctx: rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> rquickjs::Result<Self> {
+    fn from_js(_ctx: &rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> rquickjs::Result<Self> {
         let obj = rquickjs::Object::from_value(value)?;
         let data: rquickjs::Value = obj.get("data")?;
         let data = js_to_serde_value(&data).ok_or(rquickjs::Error::FromJs {
@@ -334,11 +366,21 @@ impl<'js> rquickjs::FromJs<'js> for DecodeDataItem {
             to: "",
             message: Some("id most number".to_string()),
         })?;
-        Ok(Self { v: data, i: id })
+        let name: String = obj.get("name").map_err(|_| rquickjs::Error::FromJs {
+            from: "",
+            to: "",
+            message: Some("name most number".to_string()),
+        })?;
+        let unit: String = obj.get("unit").map_err(|_| rquickjs::Error::FromJs {
+            from: "",
+            to: "",
+            message: Some("unit most number".to_string()),
+        })?;
+        Ok(Self { v: data, i: id, name, unit })
     }
 }
 impl<'js> rquickjs::FromJs<'js> for DecodeData {
-    fn from_js(_ctx: rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> rquickjs::Result<Self> {
+    fn from_js(_ctx: &rquickjs::Ctx<'js>, value: rquickjs::Value<'js>) -> rquickjs::Result<Self> {
         let obj = rquickjs::Object::from_value(value).map_err(|_| rquickjs::Error::FromJs {
             from: "",
             to: "",
@@ -353,8 +395,8 @@ impl<'js> rquickjs::FromJs<'js> for DecodeData {
 }
 
 impl<'js> rquickjs::IntoJs<'js> for RawData {
-    fn into_js(self, ctx: rquickjs::Ctx<'js>) -> rquickjs::Result<rquickjs::Value<'js>> {
-        rquickjs::Object::new(ctx)
+    fn into_js(self, ctx: &rquickjs::Ctx<'js>) -> rquickjs::Result<rquickjs::Value<'js>> {
+        rquickjs::Object::new(ctx.clone())
             .and_then(|obj| obj.prop("bytes", self.bytes).map(|_| obj))
             .into_js(ctx)
     }
@@ -448,31 +490,18 @@ impl JsManager {
         })
     }
 
-    pub fn test(&self, code: &str, data: RawData) -> Result<DecodeData, JsDecodeError> {
-        let module = self.compile(code)?;
-        self.eval(&module, data)
-    }
-    pub fn eval(&self, module: &[u8], data: RawData) -> Result<DecodeData, JsDecodeError> {
+    pub fn eval(&self, script: &str, data: RawData) -> Result<DecodeData, JsDecodeError> {
         let ctx = self.ctx()?;
         ctx.ctx.with(|ctx| {
-            let m = rquickjs::Module::instantiate_read_object(ctx, module).catch(ctx)?;
-            let f: rquickjs::Function = m
-                .get(JS_FUNCTION_NAME)
+            let global = ctx.globals();
+            ctx.eval::<(), _>(script)?;
+            let decode: Function = global.get(JS_FUNCTION_NAME)
                 .map_err(|_| JsDecodeError::Export(format!("most export {}", JS_FUNCTION_NAME)))?;
-            let data: DecodeData = f.call((data,)).catch(ctx)?;
+            let data: DecodeData = decode.call((data,))?;
             Ok(data)
         })
     }
 
-    pub fn compile(&self, code: &str) -> Result<Vec<u8>, JsDecodeError> {
-        let ctx = self.ctx()?;
-        let r: Result<Vec<u8>, JsDecodeError> = ctx.ctx.with(|ctx| {
-            let b = unsafe { rquickjs::Module::unsafe_declare(ctx, "script", code) }.catch(ctx)?;
-            let byte = b.write_object(false)?;
-            Ok(byte)
-        });
-        r
-    }
 }
 
 #[cfg(test)]
@@ -502,7 +531,7 @@ mod tests {
     ]
   }
 }"#;
-        let d = m.decode_with_code(Id::new(1), s, RawData::new([1, 2, 3])).unwrap();
+        let d = m.decode_with_code(s, RawData::new([1, 2, 3])).unwrap();
         println!("{:?}", d);
     }
 }

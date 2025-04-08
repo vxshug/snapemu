@@ -1,62 +1,66 @@
+use derive_new::new;
+use tracing::info;
 use crate::man::data::ValueType;
 use crate::man::Id;
 use crate::DeviceResult;
 use common_define::db::{Eui, LoRaAddr};
-use serde_json::Value;
+use common_define::decode::Value;
+use crate::decode::DecodeData;
+use crate::man::lora::LoRaNode;
 
+#[derive(new)]
 pub(crate) struct MqttMessage {
-    message: String,
-    topic: String,
-    qos: i32,
+    pub(crate) message: String,
+    pub(crate) topic: String,
 }
 
-// impl IntoMQTTMessage for MqttMessage {
-//     fn topic(&self) -> &str {
-//         self.topic.as_str()
-//     }
-//
-//     fn payload(&self) -> &[u8] {
-//         self.message.as_bytes()
-//     }
-//
-//     fn qos(&self) -> i32 {
-//         self.qos
-//     }
-// }
 
 impl MqttMessage {
-    pub(crate) fn new_one_data(data: &MqttData, qos: i32) -> DeviceResult<Self> {
+    pub(crate) fn new_one_data(data: &MqttData,) -> DeviceResult<Self> {
         let message = serde_json::to_string(data)?;
         let topic = format!("/v1/device/{}/data/{}", data.device.unwrap(), data.data_id);
-        Ok(Self { message, topic, qos })
+        Ok(Self { message, topic })
     }
 
-    pub(crate) fn new_data(data: &MqttDataAll, qos: i32) -> DeviceResult<Self> {
+    pub(crate) fn new_data(data: &MqttDataAll) -> DeviceResult<Self> {
         let message = serde_json::to_string(data)?;
         let topic = format!("/v1/device/{}/data", data.device);
-        Ok(Self { message, topic, qos })
+        Ok(Self { message, topic })
     }
 
     pub(crate) fn new_row_data(data: &MqttRawData, qos: i32) -> DeviceResult<Self> {
         let message = serde_json::to_string(data)?;
         let topic = format!("/v1/device/{}/row", data.device);
-        Ok(Self { message, topic, qos })
+        Ok(Self { message, topic })
     }
 
-    pub(crate) fn new_decode_data(data: &MqttDecodeData, qos: i32) -> DeviceResult<Self> {
-        let message = serde_json::to_string(data)?;
-        let topic = format!("/v1/device/{}/decode", data.device);
-        Ok(Self { message, topic, qos })
+    pub(crate) fn new_decode_data(data: &DecodeData, node: &LoRaNode) -> Option<Self> {
+        if let Some(user_id) = node.info.user_id {
+            let topic = format!("user/{}/data/{}/uplink", user_id, node.info.dev_eui);
+            let message = MqttDecodeData {
+                battery: node.info.battery,
+                charge: Some(node.info.charge),
+                eui: node.info.dev_eui,
+                data: data.data.iter().map(|item| MqttDataItem {
+                    data: item.v.clone(),
+                    id: item.i,
+                    name: item.name.clone(),
+                    unit: item.unit.clone(),
+                } ).collect(),
+            };
+            let message = serde_json::to_string(&message).ok()?;
+            return Some(Self { message, topic })
+        };
+        None
     }
 
     pub(crate) fn new_decode_group_data(
         data: &MqttDecodeData,
         group_id: Id,
-        qos: i32,
     ) -> DeviceResult<Self> {
         let message = serde_json::to_string(data)?;
         let topic = format!("/v1/group/{}/decode", group_id);
-        Ok(Self { message, topic, qos })
+        Ok(Self { message, topic })
     }
 }
 
@@ -86,20 +90,16 @@ pub(crate) struct MqttRawData {
 
 #[derive(serde::Serialize)]
 pub(crate) struct MqttDecodeData {
-    pub(crate) device: Id,
-    pub(crate) bytes: String,
-    pub(crate) battery: Option<u8>,
+    pub(crate) battery: Option<i16>,
     pub(crate) charge: Option<bool>,
     pub(crate) eui: Eui,
-    pub(crate) addr: LoRaAddr,
     pub(crate) data: Vec<MqttDataItem>,
 }
 
 #[derive(serde::Serialize)]
 pub(crate) struct MqttDataItem {
-    pub(crate) data: serde_json::Value,
-    pub(crate) data_id: i32,
-    pub(crate) v_type: ValueType,
-    pub(crate) v_name: Option<String>,
-    pub(crate) v_unit: Option<String>,
+    pub(crate) data: Value,
+    pub(crate) id: i32,
+    pub(crate) name: String,
+    pub(crate) unit: String,
 }

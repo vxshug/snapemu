@@ -1,6 +1,7 @@
 use crate::time::Timestamp;
 use base64::Engine;
 use derive_new::new;
+use influxdb2::models::FieldValue;
 
 #[derive(
     serde::Serialize,
@@ -67,7 +68,7 @@ pub enum CustomDecodeDataType {
 )]
 pub struct LastDecodeData {
     pub v: Vec<DecodeData>,
-    pub t: Timestamp,
+    pub t: i64,
 }
 
 #[derive(
@@ -94,6 +95,23 @@ pub enum Value {
     Bool(bool),
 }
 
+
+impl From<Value> for FieldValue {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Int(i) => FieldValue::I64(i),
+            Value::Float(f) => FieldValue::F64(f),
+            Value::Bool(b) => FieldValue::Bool(b),
+        }
+    }
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Self::Int(0)
+    }
+}
+
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -105,6 +123,16 @@ impl PartialEq for Value {
     }
 }
 impl Eq for Value {}
+
+impl influxdb2::writable::ValueWritable for Value {
+    fn encode_value(&self) -> String {
+        match self {
+            Value::Int(i) => i.encode_value(),
+            Value::Float(f) => f.encode_value(),
+            Value::Bool(b) => b.encode_value(),
+        }
+    }
+}
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(try_from = "&str")]

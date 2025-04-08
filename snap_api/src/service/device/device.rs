@@ -1,12 +1,4 @@
-use common_define::db::{
-    DecodeScriptColumn, DecodeScriptEntity, DeviceAuthorityActiveModel, DeviceAuthorityColumn,
-    DeviceAuthorityEntity, DeviceAuthorityModel, DeviceDataEntity, DeviceDataModel,
-    DeviceFunctionColumn, DeviceFunctionEntity, DeviceFunctionModel, DeviceLoraGateColumn,
-    DeviceLoraGateEntity, DeviceLoraGateModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity,
-    DeviceLoraNodeModel, DevicesActiveModel, DevicesColumn, DevicesEntity, DevicesModel, Eui, Key,
-    LoRaAddr, SnapDeviceColumn, SnapDeviceDataNameColumn, SnapDeviceDataNameEntity,
-    SnapDeviceEntity, SnapDeviceModel,
-};
+use common_define::db::{DecodeScriptColumn, DecodeScriptEntity, DeviceAuthorityActiveModel, DeviceAuthorityColumn, DeviceAuthorityEntity, DeviceAuthorityModel, DeviceDataEntity, DeviceDataModel, DeviceFunctionColumn, DeviceFunctionEntity, DeviceFunctionModel, DeviceLoraGateActiveModel, DeviceLoraGateColumn, DeviceLoraGateEntity, DeviceLoraGateModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DeviceLoraNodeModel, DevicesActiveModel, DevicesColumn, DevicesEntity, DevicesModel, Eui, Key, LoRaAddr, SnapDeviceColumn, SnapDeviceDataNameColumn, SnapDeviceDataNameEntity, SnapDeviceEntity, SnapDeviceModel};
 use common_define::decode::LastDecodeData;
 use common_define::lora::{LoRaJoinType, LoRaRegion};
 use common_define::product::{DeviceType, ProductType, ShareType};
@@ -30,7 +22,7 @@ use crate::error::ApiResult;
 use crate::{
     get_lang, tt, AppState, CurrentUser, DEVICE_DATA_RAW_SQL, MODEL_MAP, SEA_ORMDB_BACKEND,
 };
-
+use crate::gw_conf::GwConfig;
 use super::DeviceService;
 use crate::service::data::query::{DataDeviceOneResponse, TimeDate};
 use crate::service::data::DataService;
@@ -87,6 +79,8 @@ pub(crate) struct DeviceResp {
     pub(crate) blue_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) online: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) period: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) battery: Option<i16>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -211,6 +205,8 @@ pub struct DeviceModify {
     pub app_skey: Option<Key>,
     pub class_c: Option<bool>,
     pub product_id: Option<Id>,
+    pub product: Option<String>,
+    pub config: Option<GwConfig>,
 }
 
 impl From<DeviceLoraNodeModel> for LoRaNodeDeviceInfo {
@@ -605,7 +601,7 @@ impl DeviceService {
             description: ActiveValue::Set(desc.to_string()),
             creator: ActiveValue::Set(user.id),
             enable: ActiveValue::Set(true),
-            online: ActiveValue::Set(false),
+            period: ActiveValue::Set(60),
             script: ActiveValue::Set(None),
             data_id: Default::default(),
             product_id: Default::default(),
@@ -892,6 +888,20 @@ impl DeviceService {
         if let Some(product_id) = info.product_id {
             if Some(product_id) != device_with_auth.device.product_id {
                 device_active.product_id = ActiveValue::Set(Some(product_id));
+            }
+        }
+        if device_with_auth.device.device_type == DeviceType::LoRaGate {
+            let gate = DeviceLoraGateEntity::find().filter(DeviceLoraGateColumn::DeviceId.eq(device_with_auth.device.id)).one(conn).await?;
+            if let Some(gate) = gate {
+                let mut gate = gate.into_active_model();
+                if let Some(config) = info.config {
+                    let config_s = serde_json::to_string(&config)?;
+                    gate.config = ActiveValue::Set(config_s);
+                }
+                if let Some(product) = info.product {
+                    gate.product = ActiveValue::Set(product);
+                }
+                gate.update(conn).await?;
             }
         }
         if let Some(script_id) = info.script {

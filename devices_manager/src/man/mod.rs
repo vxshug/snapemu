@@ -5,6 +5,8 @@ pub(crate) mod lora;
 mod mq;
 pub mod mqtt;
 pub mod redis_client;
+pub mod influxdb;
+pub(crate) mod gw;
 
 pub use downlink::DownlinkManager;
 

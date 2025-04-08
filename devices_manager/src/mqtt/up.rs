@@ -35,10 +35,20 @@ pub struct MqttSubscriber {
 impl MqttSubscriber {
     pub async fn new_with_sender(sender: mpsc::Sender<MqttMessage>) -> DeviceResult<Option<Self>> {
         let config = load_config();
+        let mqtt_config = MqttConfig {
+            host: "".to_string(),
+            port: 0,
+            username: "".to_string(),
+            password: "".to_string(),
+            client: "".to_string(),
+            ca: None,
+            tls: false,
+            topic: None,
+        };
         match config.mqtt {
             None => Ok(None),
-            Some(ref mqtt_config) => {
-                let (client, eventloop) = Self::connect(mqtt_config);
+            Some(ref config) => {
+                let (client, eventloop) = Self::connect(&mqtt_config);
                 for topic in &mqtt_config.topic.clone().unwrap_or_default() {
                     client
                         .subscribe(topic, QoS::ExactlyOnce)

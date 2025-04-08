@@ -22,6 +22,7 @@ async fn get_all_device(State(state): State<AppState>) -> ApiResponseResult<Devi
             name: item.name.into(),
             blue_name: None,
             online: None,
+            period: None,
             battery: None,
             data: None,
             charge: None,

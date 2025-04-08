@@ -206,7 +206,7 @@ mod device {
                     .col(text(SnapDevices::Description))
                     .col(big_integer(SnapDevices::Creator))
                     .col(boolean(SnapDevices::Enable))
-                    .col(boolean(SnapDevices::Online))
+                    .col(integer(SnapDevices::Period))
                     .col(big_integer_null(SnapDevices::Script))
                     .col(big_integer_null(SnapDevices::DataId))
                     .col(big_integer_null(SnapDevices::ProductId))
@@ -226,11 +226,10 @@ mod device {
                     .if_not_exists()
                     .col(big_key_auto(SnapIntegrationMqtt::Id))
                     .col(big_integer(SnapIntegrationMqtt::UserId))
-                    .col(big_integer(SnapIntegrationMqtt::Share))
-                    .col(text(SnapIntegrationMqtt::ShareType))
-                    .col(text(SnapIntegrationMqtt::Name))
+                    .col(text(SnapIntegrationMqtt::MqttType))
+                    .col(text(SnapIntegrationMqtt::Username))
+                    .col(text(SnapIntegrationMqtt::Password))
                     .col(boolean(SnapIntegrationMqtt::Enable))
-                    .col(text(SnapIntegrationMqtt::Token))
                     .col(
                         timestamp_with_time_zone(SnapIntegrationMqtt::CreateTime)
                             .default(Expr::current_timestamp()),
@@ -306,6 +305,8 @@ mod device {
                     .col(big_integer(SnapDeviceLoraGate::DeviceId).unique_key())
                     .col(text(SnapDeviceLoraGate::Region))
                     .col(text(SnapDeviceLoraGate::Eui))
+                    .col(text(SnapDeviceLoraGate::Product))
+                    .col(text(SnapDeviceLoraGate::Config))
                     .to_owned(),
             )
             .await?;
@@ -488,7 +489,7 @@ mod device {
         Description,
         Creator,
         Enable,
-        Online,
+        Period,
         Script,
         DataId,
         ProductId,
@@ -501,12 +502,11 @@ mod device {
     enum SnapIntegrationMqtt {
         Table,
         Id,
+        MqttType,
         UserId,
-        Share,
-        ShareType,
-        Name,
+        Username,
+        Password,
         Enable,
-        Token,
         CreateTime,
     }
 
@@ -528,6 +528,8 @@ mod device {
         DeviceId,
         Region,
         Eui,
+        Product,
+        Config,
     }
 
     #[derive(DeriveIden)]

@@ -1,5 +1,5 @@
 use crate::decode::{up_data_decode, RawData};
-use crate::man::mqtt::{MqttMessage, SnapPublisher};
+use crate::man::mqtt::{MqttMessage, MqPublisher};
 use crate::man::redis_client::RedisClient;
 use crate::protocol::snap::{DownJson, DownloadData, UpData, UpJson};
 use crate::{DeviceError, DeviceResult, GLOBAL_DEPEND, GLOBAL_STATE};
@@ -21,20 +21,12 @@ use tracing::{debug, error, info, warn};
 use utils::base64::EncodeBase64;
 
 pub async fn start_process_snap(mut rx: mpsc::Receiver<MqttMessage>) {
-    loop {
-        let option = rx.recv().await;
-        match option {
-            None => {
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                error!("snap channel is close");
-            }
-            Some(message) => {
-                debug!("start process topic: {}", message.topic.as_str());
-                let result = serde_json::from_slice::<UpJson>(message.payload.as_ref());
-                if let Ok(ok) = result {
-                    tokio::spawn(decode_custom_gateway(ok, message.topic));
-                }
-            }
+    while let Some(message) = rx.recv().await {
+        debug!("start process topic: {}", message.topic.as_str());
+
+        let result = serde_json::from_slice::<UpJson>(message.payload.as_ref());
+        if let Ok(ok) = result {
+            tokio::spawn(decode_custom_gateway(ok, message.topic));
         }
     }
 }
@@ -115,7 +107,7 @@ impl NodeProcessor {
         let resp = serde_json::to_string(&resp)?;
         let now = Timestamp::now();
         SnapDeviceInfo::update_active_time(eui, now, &mut self.redis).await?;
-        () = self.redis.publish(common_define::event::DeviceEvent::KAFKA_TOPIC, resp).await?;
+        self.redis.publish(common_define::event::DeviceEvent::KAFKA_TOPIC, resp).await?;
 
         if ack {
             match DownloadData::new_with_eui(eui)
@@ -133,9 +125,9 @@ impl NodeProcessor {
                     if snap_device.freq.as_ref() != Some(&self.pk.freq) {
                         SnapDeviceInfo::update_freq(eui, self.pk.freq, &mut self.redis).await?;
                     }
-                    if let Err(e) = SnapPublisher::publish(down, s).await {
-                        warn!("failed to publish down: {}", e);
-                    }
+                    // if let Err(e) = MqPublisher::publish(down, s).await {
+                    //     warn!("failed to publish down: {}", e);
+                    // }
                 }
                 Err(e) => {
                     warn!("failed to encode ack: {:?}", e);
@@ -154,7 +146,7 @@ impl NodeProcessor {
                     Some(script) => {
                         let bytes_b64 = payload.encode_base64();
                         let decodedata = GLOBAL_DEPEND
-                            .decode_with_code(o, script.script.as_str(), RawData::new(payload))
+                            .decode_with_code(script.script.as_str(), RawData::new(payload))
                             .map_err(|e| DeviceError::data("js decode"))?;
                         if decodedata.data.is_empty() {
                             warn!("js return null");
@@ -163,8 +155,8 @@ impl NodeProcessor {
                         let last_key = last_device_data_key(snap_device.id);
                         let data: DbDecodeData = decodedata.into();
                         let now = Timestamp::now();
-                        let last_data = LastDecodeData::new(data.0.clone(), now);
-                        () = self.redis.set(last_key, last_data).await?;
+                        let last_data = LastDecodeData::new(data.0.clone(), now.timestamp_millis() as _);
+                        self.redis.set(last_key, last_data).await?;
                         let data = DeviceDataActiveModel {
                             id: Default::default(),
                             device_id: ActiveValue::Set(snap_device.id),
@@ -178,10 +170,10 @@ impl NodeProcessor {
             }
             None => {
                 let decoded_data = up_data_decode(payload)?;
-                let last_data = LastDecodeData::new(decoded_data.data.clone(), now);
+                let last_data = LastDecodeData::new(decoded_data.data.clone(), now.timestamp_millis() as _);
                 info!("decode {:?}", decoded_data);
                 let last_key = last_device_data_key(snap_device.id);
-                () = self.redis.set(last_key, last_data).await?;
+                self.redis.set(last_key, last_data).await?;
                 let bytes_b64 = payload.encode_base64();
                 let data = DeviceDataActiveModel {
                     id: Default::default(),

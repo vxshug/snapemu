@@ -1,16 +1,21 @@
 #![allow(dead_code)]
 
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::thread;
 use crate::decode::JsManager;
-use crate::load::{store_config, State};
-use crate::man::data::DownloadDataCache;
-use crate::man::mqtt::SnapSubscriber;
+use crate::load::{load_config, store_config, State};
+use crate::man::data::{DataError, DownloadDataCache};
+use crate::man::mqtt::MessageProcessor;
 use crate::man::redis_client::{RedisClient, RedisRecv};
 use crate::man::{DecodeManager, DownlinkManager, Id, MQ};
 use crate::service::custom_gateway::start_process_snap;
 use common_define::event::DeviceEvent;
-use man::data::DataError;
 use once_cell::sync::Lazy;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
+use crate::man::influxdb::InfluxError;
+use crate::mqtt::mqtt_auth_fn;
+use crate::protocol::mqtt::{Broker, ConnectionSettings, ListenConfig, MqttConfig, RouterConfig, TlsConfig};
 
 pub(crate) mod decode;
 pub(crate) mod load;
@@ -21,6 +26,7 @@ pub(crate) mod service;
 
 pub(crate) mod event;
 pub(crate) mod integration;
+pub(crate) mod db;
 
 tokio::task_local! {
     static DEVICE_ID: Id;
@@ -60,6 +66,12 @@ enum DeviceError {
     Connect(String),
     #[error("Empty")]
     Empty,
+    #[error("DataError {0}")]
+    DataError(#[from] common_define::db::DataError),
+    #[error("RequestError {0}")]
+    RequestError(#[from] influxdb2::RequestError),
+    #[error("MQTT error {0}")]
+    InfluxError(#[from] InfluxError)
 }
 
 impl DeviceError {
@@ -124,6 +136,11 @@ static GLOBAL_DOWNLOAD: Lazy<DownloadDataCache> = Lazy::new(DownloadDataCache::d
 
 static GLOBAL_STATE: Lazy<State> = Lazy::new(load::load_state);
 
+static MODEL_MAP: Lazy<snap_model::ModelMap> = Lazy::new(|| {
+    let config = load_config();
+    snap_model::load_model_file(config.device.model.as_ref().map(|p| p.path.as_str()))
+});
+
 struct Topic {
     data: &'static str,
     gate_event: &'static str,
@@ -134,6 +151,8 @@ pub async fn run(config: String, env_prefix: String) {
     let config = store_config(config, env_prefix);
     snap_config::init_logging(config.log);
     GLOBAL_STATE.db.ping().await.unwrap();
+
+
     let redis_client = RedisClient::get_client();
     let recv = RedisRecv::new(redis_client.get_pubsub().await.unwrap());
     let mut consumer = RedisRecv::new(redis_client.get_pubsub().await.unwrap());
@@ -141,16 +160,7 @@ pub async fn run(config: String, env_prefix: String) {
     tokio::spawn(async move {
         DownlinkManager::new(consumer).start_downlink().await;
     });
-    info!("push data topic: {}", GLOBAL_TOPIC.data);
-    let snap = config.snap.as_ref();
-    if snap.is_some() {
-        let (tx, rx) = tokio::sync::mpsc::channel(100);
-        let subscriber = SnapSubscriber::new_with_sender(tx).await.unwrap();
-        if let Some(subscriber) = subscriber {
-            tokio::spawn(subscriber.start());
-            tokio::spawn(start_process_snap(rx));
-        }
-    };
 
-    MQ::new(recv).await.start().await;
+
+    MQ::new(recv).await.start().await
 }

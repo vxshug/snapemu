@@ -2,9 +2,9 @@ use crate::man::lora::{LoRaGate, LoRaNode, LoRaNodeManager};
 use crate::man::Id;
 use crate::protocol::lora;
 use crate::protocol::lora::payload::LoRaPayload;
-use crate::{decode, DeviceError, DeviceResult, GLOBAL_DEPEND, GLOBAL_STATE};
+use crate::{decode, DeviceError, DeviceResult, GLOBAL_DEPEND, GLOBAL_STATE, MODEL_MAP};
 use common_define::db::{
-    DbDecodeData, DeviceDataActiveModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DevicesEntity,
+    DeviceDataActiveModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DevicesEntity,
     Eui, LoRaAddr,
 };
 use common_define::decode::LastDecodeData;
@@ -26,7 +26,8 @@ use tracing::instrument;
 use tracing::{debug, error, info, warn};
 use utils::base64::EncodeBase64;
 
-use crate::decode::RawData;
+use crate::db::DbDecodeData;
+use crate::decode::{DecodeData, RawData};
 use crate::event::LoRaNodeEvent;
 use crate::integration::mqtt::{MqttMessage, MqttRawData};
 use crate::man::redis_client::RedisClient;
@@ -173,14 +174,11 @@ async fn decode_payload(
     node.update_time().await?;
     let conn = &GLOBAL_STATE.db;
     let mut redis = RedisClient::get_client().get_multiplexed_conn().await?;
-    let all_data = MqttRawData { device: node.info.device_id, bytes: push_data.pk.data.clone() };
-    let msg = MqttMessage::new_row_data(&all_data, 1)?;
     node.update_gateway().await?;
 
     for cmd in payload.fhdr().fopts() {
         warn!("fopt command: {:?}", cmd);
     }
-
     let payload = payload.frm_payload().map_err(DeviceError::data)?;
     match payload {
         lorawan::parser::FRMPayload::Data(data) => {
@@ -196,47 +194,34 @@ async fn decode_payload(
                             warn!("Not found Script");
                         }
                         Some(script) => {
-                            let bytes_b64 = data.encode_base64();
                             let decodedata = GLOBAL_DEPEND
-                                .decode_with_code(o, script.script.as_str(), RawData::new(data))
+                                .decode_with_code(script.script.as_str(), RawData::new(data))
                                 .map_err(|e| DeviceError::data("js decode"))?;
                             if decodedata.data.is_empty() {
                                 warn!("js return null");
                                 return Ok(());
                             }
-                            let last_key = last_device_data_key(node.info.device_id);
-                            let data: DbDecodeData = decodedata.into();
-                            let now = Timestamp::now();
-                            let last_data = LastDecodeData::new(data.0.clone(), now);
-                            redis.set(last_key, last_data).await?;
-                            let data = DeviceDataActiveModel {
-                                id: Default::default(),
-                                device_id: ActiveValue::Set(node.info.device_id),
-                                data: ActiveValue::Set(data),
-                                bytes: ActiveValue::Set(bytes_b64),
-                                create_time: ActiveValue::Set(now),
-                            };
-                            data.insert(conn).await?;
+                            if let Some(message) = MqttMessage::new_decode_data(&decodedata, node) {
+                                GLOBAL_STATE.mq.publish(message).await?;
+                            }
+
+                            GLOBAL_STATE.tsdb.write_js(decodedata, node.info.device_id).await?;
                         }
                     }
                 }
                 None => {
                     let decoded_data = decode::up_data_decode(data)?;
-
                     info!("decode {:?}", decoded_data);
-                    let bytes_b64 = data.encode_base64();
                     let last_key = last_device_data_key(node.info.device_id);
                     let now = Timestamp::now();
-                    let last_data = LastDecodeData::new(decoded_data.data.clone(), now);
+                    let last_data = LastDecodeData::new(decoded_data.data.clone(), now.timestamp_millis() as _);
                     debug!("save last data");
                     redis.set(last_key, last_data).await?;
-                    let data = DeviceDataActiveModel {
-                        id: Default::default(),
-                        device_id: ActiveValue::Set(node.info.device_id),
-                        data: ActiveValue::Set(DbDecodeData(decoded_data.data)),
-                        bytes: ActiveValue::Set(bytes_b64),
-                        create_time: ActiveValue::Set(Timestamp::now()),
-                    };
+                    let data = DecodeData::new(decoded_data.data, &*MODEL_MAP);
+                    if let Some(message) = MqttMessage::new_decode_data(&data, node) {
+                        GLOBAL_STATE.mq.publish(message).await?;
+                    }
+                    GLOBAL_STATE.tsdb.write_js(data, node.info.device_id).await?;
                     if let Some(status) = decoded_data.status {
                         debug!("change battery status");
                         redis
@@ -247,10 +232,8 @@ async fn decode_payload(
                             )
                             .await?;
                     }
-                    data.insert(conn).await?;
                 }
             }
-
             return Ok(());
         }
         lorawan::parser::FRMPayload::MACCommands(commands) => {
@@ -404,7 +387,7 @@ async fn decode_node_payload(
     data: PushData,
 ) -> DeviceResult {
     let up_count_pre = node.info.up_count as u16;
-    if up_count_pre == up_count && up_count != 0 {
+    if up_count_pre == up_count && !(up_count == 0 || up_count_pre == 1) {
         tracing::info!("repetition payload");
         Ok(())
     } else {

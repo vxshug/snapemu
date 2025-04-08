@@ -10,6 +10,7 @@ use tracing::{instrument, warn};
 
 #[derive(Debug, Serialize, HashNames, RedisOps)]
 pub struct NodeInfo {
+    pub user_id: Option<Id>,
     pub device_id: Id,
     pub region: LoRaRegion,
     pub join_type: LoRaJoinType,
@@ -47,7 +48,7 @@ pub struct NodeInfo {
     pub app_non: i32,
     pub net_id: i32,
     pub enable: bool,
-    pub online: bool,
+    pub period: i32,
     pub script: Option<Id>,
     pub active_time: Option<Timestamp>,
 
@@ -217,6 +218,7 @@ impl NodeInfo {
         conn: &mut C,
     ) -> redis::RedisResult<Self> {
         let node_info = NodeInfo {
+            user_id: Some(device.creator),
             device_id: node.device_id,
             region: node.region,
             join_type: node.join_type,
@@ -254,7 +256,7 @@ impl NodeInfo {
             app_non: node.app_non,
             net_id: node.net_id,
             enable: device.enable,
-            online: device.online,
+            period: device.period,
             script: device.script,
             active_time: device.active_time,
             gateway: None,

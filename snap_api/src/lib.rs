@@ -32,12 +32,15 @@ pub(crate) mod man;
 pub(crate) mod service;
 pub(crate) mod sub;
 pub(crate) mod utils;
+pub mod gw_conf;
+
 use crate::cache::ProductNameCache;
-use crate::load::{load_config, load_db, store_config};
+use crate::load::{load_config, load_db, load_tsdb, store_config};
 use crate::man::{NodeEventManager, RedisClient, RedisRecv};
 use crate::service::user::UserLang;
 pub use local_key::*;
 use migration::MigratorTrait;
+use crate::man::influxdb::InfluxDbClient;
 
 const SEA_ORMDB_BACKEND: sea_orm::DbBackend = sea_orm::DbBackend::Postgres;
 
@@ -61,6 +64,7 @@ static MODEL_MAP: Lazy<snap_model::ModelMap> = Lazy::new(|| {
 struct AppState {
     db: sea_orm::DatabaseConnection,
     redis: RedisClient,
+    influx_client: InfluxDbClient
 }
 
 const USER_TAG: &str = "user";
@@ -68,6 +72,7 @@ const DEVICE_TAG: &str = "device";
 const ADMIN_TAG: &str = "admin";
 const DATA_TAG: &str = "data";
 const DECODE_TAG: &str = "decode";
+const INTEGRATION_TAG: &str = "integration";
 
 struct AdminSecurityAddon;
 
@@ -177,7 +182,8 @@ pub async fn run(config_path: String, env_prefix: String) {
             }
         }
     });
-    let state = AppState { db, redis: redis_pool.clone() };
+    let tsdb = load_tsdb();
+    let state = AppState { db, redis: redis_pool.clone(), influx_client: tsdb };
     let products = SnapProductInfoEntity::find().all(&state.db).await.unwrap();
 
     GLOBAL_PRODUCT_NAME.replace(products);

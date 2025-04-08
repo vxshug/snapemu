@@ -7,6 +7,7 @@ mod user_manager;
 mod device_predefine;
 pub mod sync_device;
 pub mod user_status;
+pub mod influxdb;
 
 pub use device_predefine::DeviceQueryClient;
 

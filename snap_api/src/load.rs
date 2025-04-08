@@ -4,6 +4,7 @@ use serde::Deserialize;
 use snap_config::SnapConfig;
 use std::sync::Arc;
 use tracing::info;
+use crate::man::influxdb::InfluxDbClient;
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
@@ -16,6 +17,8 @@ pub struct AppConfig {
     pub concat_email: Option<String>,
     pub api: ApiConfig,
     pub device_data_timeout_day: Option<u32>,
+    #[serde(default)]
+    pub tsdb: Option<snap_config::TsdbConfig>,
 }
 
 impl Default for AppConfig {
@@ -26,6 +29,7 @@ impl Default for AppConfig {
             log: Default::default(),
             jwt_key: "".to_string(),
             concat_email: None,
+            tsdb: Default::default(),
             api: ApiConfig {
                 predefine: None,
                 oss: None,
@@ -140,6 +144,14 @@ pub fn store_config(config: String, env_prefix: String) -> arc_swap::Guard<Arc<A
     CONFIG.store(Arc::new(config.into_local_config().unwrap()));
     load_config()
 }
+
+pub fn load_tsdb() -> InfluxDbClient {
+    let config = load_config();
+    let tsdb_config = config.tsdb.clone().unwrap();
+    let client = influxdb2::Client::new(tsdb_config.host, tsdb_config.org, tsdb_config.token);
+    InfluxDbClient::new(tsdb_config.bucket, client)
+}
+
 
 pub async fn load_db() -> sea_orm::DatabaseConnection {
     let config = load_config();

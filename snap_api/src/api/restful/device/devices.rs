@@ -6,7 +6,7 @@ use sea_orm::TransactionTrait;
 use tracing::instrument;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
-
+use common_define::time::Timestamp;
 use crate::service::device::device::{
     DeviceCreate, DeviceInfo, DeviceModify, DeviceResp, DeviceSource, DeviceWithAuth,
     MQTTDeviceInfo,
@@ -14,7 +14,7 @@ use crate::service::device::device::{
 
 use crate::cache::DeviceCache;
 use crate::error::{ApiError, ApiResponseResult};
-use crate::service::device::group::{DeviceGroupResp, DeviceGroupService};
+use crate::service::device::group::{cmp_period, DeviceGroupResp, DeviceGroupService};
 use crate::service::device::DeviceService;
 use crate::service::lorawan::{LoRaGateService, LoRaNodeService};
 use crate::service::mqtt::MQTTService;
@@ -105,7 +105,8 @@ async fn get_device(
         id: device.id.into(),
         name: device.name.into(),
         blue_name: None,
-        online: device.online.into(),
+        online: Some(cmp_period(device.period, Timestamp::now().timestamp_millis(), &device.active_time)),
+        period: device.period.into(),
         charge: None,
         battery: None,
         description: device.description.into(),

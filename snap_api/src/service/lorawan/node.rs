@@ -747,6 +747,7 @@ impl LoRaNodeService {
         match node {
             Some(node) => {
                 NodeInfo::unregister(node.dev_eui, node.dev_addr, redis).await?;
+                node.into_active_model().delete(conn).await?;
                 Ok(())
             }
             None => {

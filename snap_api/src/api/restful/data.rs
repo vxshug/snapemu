@@ -40,7 +40,7 @@ async fn get_hour_data(
     let user = get_current_user();
     let device_db = DeviceService::query_one(user.id, device, &state.db).await?;
     let data =
-        DataService::query_duration_data(device, device_db.script, DataDuration::Hour, &state)
+        DataService::query_duration_data(device, DataDuration::Hour, &state)
             .await?;
     Ok(data.into())
 }
@@ -67,7 +67,7 @@ async fn get_day_data(
     let user = get_current_user();
     let device_db = DeviceService::query_one(user.id, device, &state.db).await?;
     let data =
-        DataService::query_duration_data(device, device_db.script, DataDuration::Day, &state)
+        DataService::query_duration_data(device, DataDuration::Day, &state)
             .await?;
     Ok(data.into())
 }
@@ -94,7 +94,7 @@ async fn get_week_data(
     let user = get_current_user();
     let device_db = DeviceService::query_one(user.id, device, &state.db).await?;
     let data =
-        DataService::query_duration_data(device, device_db.script, DataDuration::Week, &state)
+        DataService::query_duration_data(device, DataDuration::Week, &state)
             .await?;
     Ok(data.into())
 }

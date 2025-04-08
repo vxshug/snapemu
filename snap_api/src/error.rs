@@ -6,6 +6,7 @@ use num_enum::IntoPrimitive;
 use redis::ErrorKind;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
+use crate::man::influxdb::InfluxError;
 
 pub type ApiResult<T = ()> = Result<T, ApiError>;
 pub(crate) type ApiResponseResult<T = ()> = Result<ApiResponse<T>, ApiError>;
@@ -66,6 +67,13 @@ impl From<deadpool::managed::PoolError<deadpool_redis::redis::RedisError>> for A
 impl From<reqwest::Error> for ApiError {
     fn from(value: reqwest::Error) -> Self {
         Self::Server { case: "reqwest", msg: value.to_string().into() }
+    }
+}
+
+impl From<InfluxError> for ApiError {
+    fn from(value: InfluxError) -> Self {
+        error!("influxdb error: {}", value);
+        Self::Server { case: "InfluxError", msg: "InfluxError".into() }
     }
 }
 

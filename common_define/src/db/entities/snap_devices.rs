@@ -18,7 +18,7 @@ pub struct Model {
     pub description: String,
     pub creator: Id,
     pub enable: bool,
-    pub online: bool,
+    pub period: i32,
     pub script: Option<Id>,
     pub data_id: Option<Id>,
     pub product_id: Option<Id>,

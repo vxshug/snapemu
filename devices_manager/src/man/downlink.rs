@@ -1,9 +1,9 @@
 use crate::man::data::DownloadData;
 use crate::man::lora::LoRaNodeManager;
-use crate::man::mqtt::SnapPublisher;
+use crate::man::mqtt::MqPublisher;
 use crate::man::redis_client::{RedisClient, RedisRecv};
 use crate::protocol::snap::DownJson;
-use crate::{DeviceError, DeviceResult};
+use crate::{DeviceError, DeviceResult, GLOBAL_STATE};
 use base64::Engine;
 use common_define::event::{DeviceType, DownEvent};
 use common_define::ClientId;
@@ -79,9 +79,9 @@ impl DownlinkManager {
                                 data: o,
                             };
                             let s = serde_json::to_string(&j)?;
-                            if let Err(e) = SnapPublisher::publish(down_link, s).await {
-                                warn!("failed to publish down: {}", e);
-                            }
+                            // if let Err(e) = GLOBAL_STATE.mq.publish(down_link, s).await {
+                            //     warn!("failed to publish down: {}", e);
+                            // }
                         }
                         Err(e) => {
                             warn!("failed to encode ack: {:?}", e);

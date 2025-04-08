@@ -145,3 +145,69 @@ pub fn load_model_file(path: Option<&str>) -> ModelMap {
         None => ModelMap::default(),
     }
 }
+
+impl ModelSource for ModelMap {
+    fn get_data_name(&self, data_id: u32) -> DataMap {
+        if let Some(m) = self.map.get(&data_id) {
+            return DataMap {
+                unit: m.unit,
+                v_type: m.v_type,
+                name: DataName {
+                    zh: m.name.zh,
+                    en: m.name.en,
+                }
+            }
+        }
+        DataMap {
+            unit: self.default.unit,
+            v_type: ValueType::F32,
+            name: DataName {
+                zh: self.default.name.zh,
+                en: self.default.name.en,
+            }
+        }
+    }
+}
+
+impl<T: ModelSource> ModelSource for &T {
+    fn get_data_name(&self, data_id: u32) -> DataMap {
+        (*self).get_data_name(data_id)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DataMap<'a> {
+    pub unit: &'a str,
+    pub v_type: ValueType,
+    pub name: DataName<'a>,
+}
+#[derive(Debug, Clone)]
+pub struct DataName<'a> {
+    zh: &'a str,
+    en: &'a str,
+}
+
+impl<'a> From<&'a str> for DataName<'a> {
+    fn from(s: &'a str) -> DataName<'a> {
+        if let Some((zh, en)) = s.split_once(',') {
+            return Self {
+                zh,
+                en
+            }
+        }
+        Self {
+            zh: s,
+            en: s,
+        }
+    }
+}
+
+impl DataName<'_> {
+    pub fn format_tag(&self) -> String {
+        format!("{},{}", self.zh, self.en)
+    }
+}
+
+pub trait ModelSource {
+    fn get_data_name(&self, data_id: u32) -> DataMap;
+}

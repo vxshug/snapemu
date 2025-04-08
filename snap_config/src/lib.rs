@@ -9,6 +9,7 @@ pub use device_topic::DeviceTopicConfig;
 pub use log_level::init_logging;
 pub use log_level::LogLevelConfig;
 pub use redis::RedisConfig;
+pub use tsdb::TsdbConfig;
 
 mod redis {
     use serde::Deserialize;
@@ -178,5 +179,44 @@ mod log_level {
     pub fn init_logging(level: LogLevelConfig) {
         let log_level: LevelFilter = level.into();
         tracing_subscriber::fmt().with_max_level(log_level).init();
+    }
+}
+
+mod tsdb {
+    use serde::Deserialize;
+
+    #[derive(Deserialize, Debug, Clone)]
+    pub struct TsdbConfig {
+        #[serde(default = "_default_host")]
+        pub host: String,
+        #[serde(default = "_default_org")]
+        pub org: String,
+        #[serde(default = "_default_token")]
+        pub token: String,
+        #[serde(default = "_default_bucket")]
+        pub bucket: String,
+    }
+
+    fn _default_host() -> String {
+        "http://loclhost:8086".to_string()
+    }
+    fn _default_org() -> String {
+        "".to_string()
+    }
+    fn _default_token() -> String {
+        "".to_string()
+    }
+    fn _default_bucket() -> String {
+        "".to_string()
+    }
+    impl Default for TsdbConfig {
+        fn default() -> Self {
+            Self {
+                host: _default_host(),
+                org: _default_org(),
+                token: _default_token(),
+                bucket: _default_bucket(),
+            }
+        }
     }
 }

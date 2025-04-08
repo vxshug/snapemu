@@ -21,7 +21,7 @@ mod verify;
 pub(crate) fn router() -> OpenApiRouter<AppState> {
     let api = OpenApiRouter::new()
         .nest("/data", data::router())
-        // .nest("/integration", integration::router())
+        .nest("/integration", integration::router())
         .nest("/device", device::router())
         .nest("/decode", decode::router())
         // .nest("/show", show::router())

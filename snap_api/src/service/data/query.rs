@@ -1,5 +1,5 @@
 use crate::error::ApiResult;
-use crate::service::data::DataService;
+use crate::service::data::{DataService, DeviceData};
 use crate::{get_lang, AppState, MODEL_MAP};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Sub;
@@ -14,9 +14,11 @@ use redis::AsyncCommands;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 
+use crate::man::influxdb::InfluxQueryBuilder;
+
 #[derive(Deserialize, Serialize, Clone, new)]
 pub(crate) struct TimeDate {
-    pub time: Timestamp,
+    pub time: i64,
     pub data: Value,
 }
 #[derive(Deserialize, Serialize, Clone)]
@@ -56,12 +58,22 @@ pub enum DataDuration {
     Week,
 }
 
+
+
 impl DataDuration {
     fn duration(&self) -> chrono::Duration {
         match self {
             DataDuration::Hour => chrono::Duration::hours(1),
             DataDuration::Day => chrono::Duration::days(1),
             DataDuration::Week => chrono::Duration::weeks(1),
+        }
+    }
+
+    fn influx_range(&self) -> String {
+        match self {
+            DataDuration::Hour => String::from("|> range(start: -1h)"),
+            DataDuration::Day => String::from("|> range(start: -1d)"),
+            DataDuration::Week => String::from("|> range(start: -1w)"),
         }
     }
 }
@@ -74,6 +86,17 @@ impl Sub<DataDuration> for Timestamp {
             DataDuration::Hour => self - chrono::Duration::hours(1),
             DataDuration::Day => self - chrono::Duration::days(1),
             DataDuration::Week => self - chrono::Duration::weeks(1),
+        }
+    }
+}
+
+fn get_device_name(device_name: String) -> String {
+    match device_name.split_once(",") {
+        None => {
+            device_name
+        }
+        Some((name, _)) => {
+            name.to_string()
         }
     }
 }
@@ -227,97 +250,65 @@ impl DataService {
     }
     pub(crate) async fn query_duration_data(
         device: Id,
-        script_id: Option<Id>,
         data_duration: DataDuration,
         state: &AppState,
     ) -> ApiResult<DataResponseWrap> {
-        let key = Self::device_duration_key(device, data_duration);
-        let lang = get_lang().as_static_str();
-        let mut redis_conn = state.redis.get().await?;
-        let data_resp: Option<DataResponseWrap> = redis_conn.get(&key).await?;
-        if let Some(data) = data_resp {
-            if data.update.timestamp_millis() > Timestamp::now().timestamp_millis() + 10000 {
-                return Ok(data);
+        let influx_range = data_duration.influx_range();
+        let filter = format!("|> filter(fn: (r) => r[\"_measurement\"] == \"{}\")", device);
+        let builder = InfluxQueryBuilder::new_with_fns(vec![
+            &influx_range,
+            &filter,
+        ]);
+
+        let data = state.influx_client.query(builder).await?;
+
+        let mut data_map: HashMap<i64, Vec<DeviceData>> = HashMap::new();
+
+        for item in data {
+            if let Some(v) = data_map.get_mut(&item.id) {
+                v.push(item);
+                continue
             }
+            data_map.insert(item.id, vec![item]);
         }
 
-        let start = Timestamp::now() - data_duration;
-        let conn = &state.db;
+        let mut data_response = Vec::with_capacity(data_map.len());
 
-        let data_all = DeviceDataEntity::find()
-            .filter(
-                DeviceDataColumn::DeviceId.eq(device).and(DeviceDataColumn::CreateTime.gt(start)),
-            )
-            .order_by_asc(DeviceDataColumn::Id)
-            .all(conn)
-            .await?;
-
-        let mut data_map: BTreeMap<u32, DataResponse> = BTreeMap::new();
-
-        match script_id {
-            None => {
-                for data in data_all {
-                    for x in data.data.0 {
-                        match data_map.get_mut(&x.i) {
-                            Some(d) => {
-                                d.counts += 1;
-                                d.data.push(TimeDate { time: data.create_time, data: x.v })
-                            }
-                            None => {
-                                let data_name = MODEL_MAP.get_entry(x.i, lang);
-                                let res = DataResponse {
-                                    name: data_name.name.to_string(),
-                                    counts: 1,
-                                    data_id: x.i,
-                                    unit: data_name.unit.to_string(),
-                                    data: vec![TimeDate { time: data.create_time, data: x.v }],
-                                };
-                                data_map.insert(x.i, res);
-                            }
-                        }
-                    }
+        for (_, data) in data_map {
+            let mut data_name: Option<String> = None;
+            let mut data_unit: Option<String> = None;
+            let mut data_id = 0u32;
+            let mut time_data = Vec::with_capacity(data.len());
+            for item in data {
+                data_id = item.id as u32;
+                if data_name.is_none() {
+                    data_name = Some(item.name);
                 }
-            }
-            Some(script_id) => {
-                let map = DecodeScriptEntity::find_by_id(script_id).one(conn).await?;
-                if let Some(script) = map {
-                    let map: HashMap<_, _> = script.map.iter().map(|it| (it.id, it)).collect();
-                    for data in data_all {
-                        for x in data.data.0 {
-                            match data_map.get_mut(&x.i) {
-                                Some(d) => {
-                                    d.counts += 1;
-                                    d.data.push(TimeDate { time: data.create_time, data: x.v })
-                                }
-                                None => {
-                                    if let Some(m) = map.get(&x.i) {
-                                        let res = DataResponse {
-                                            name: m.name.clone(),
-                                            counts: 1,
-                                            data_id: x.i,
-                                            unit: m.unit.clone(),
-                                            data: vec![TimeDate {
-                                                time: data.create_time,
-                                                data: x.v,
-                                            }],
-                                        };
-                                        data_map.insert(x.i, res);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                if data_unit.is_none() {
+                    data_unit = Some(item.unit);
                 }
+                time_data.push(TimeDate::new(item.time, item.value));
             }
+            if data_unit.is_none() || data_name.is_none() {
+                data_name = None;
+                data_unit = None;
+                continue;
+            }
+            let res = DataResponse {
+                name: get_device_name(data_name.unwrap()),
+                counts: time_data.len() as _,
+                data_id,
+                unit: data_unit.unwrap(),
+                data: time_data,
+            };
+            data_response.push(res);
+            data_name = None;
+            data_unit = None;
         }
 
-        let mut data: Vec<DataResponse> = data_map.into_values().collect();
-        data.sort_by(|pre, cur| pre.data_id.cmp(&cur.data_id));
+        data_response.sort_by(|pre, cur| pre.data_id.cmp(&cur.data_id));
 
-        let resp = DataResponseWrap { counts: data.len() as i64, data, update: Timestamp::now() };
-
-        redis_conn.set(&key, &resp).await?;
-
+        let resp = DataResponseWrap { counts: data_response.len() as i64, data: data_response, update: Timestamp::now() };
         Ok(resp)
     }
 
@@ -325,7 +316,6 @@ impl DataService {
         device: &DevicesModel,
         state: &AppState,
     ) -> ApiResult<DataDeviceOneResponseWrap> {
-        let script_id = device.script;
         if device.device_type == DeviceType::LoRaGate {
             return Ok(DataDeviceOneResponseWrap {
                 counts: 0,
@@ -333,79 +323,37 @@ impl DataService {
                 update: Timestamp::now(),
             });
         }
-        let conn = &state.db;
-        let key = Self::device_last_key(device.id);
-        let lang = get_lang().as_static_str();
-        let mut redis_conn = state.redis.get().await?;
-        let data_resp: Option<DataDeviceOneResponseWrap> = redis_conn.get(&key).await?;
-        if let Some(data) = data_resp {
-            if data.update.timestamp_millis() > Timestamp::now().timestamp_millis() + 10000 {
-                return Ok(data);
-            }
+        let filter = format!("|> filter(fn: (r) => r[\"_measurement\"] == \"{}\")", device.id);
+        let builder = InfluxQueryBuilder::new_with_fns(vec![
+            "|> range(start: -1w)",
+            &filter,
+            "|> last()"
+        ]);
+
+        let data = state.influx_client.query(builder).await?;
+
+        let mut resp = Vec::with_capacity(data.len());
+
+        for item in data {
+            let data = DataDeviceOneResponse {
+                name: get_device_name(item.name),
+                data_id: item.id as _,
+                unit: item.unit,
+                data: TimeDate { time: item.time, data: item.value },
+            };
+            resp.push(data);
         }
 
-        let mut redis_conn = state.redis.get().await?;
-        let last_data: Option<LastDecodeData> =
-            redis_conn.get(last_device_data_key(device.id)).await?;
+        let script_id = device.script;
 
-        match last_data {
-            None => {
-                Ok(DataDeviceOneResponseWrap { counts: 0, data: vec![], update: Timestamp::now() })
-            }
-            Some(data) => {
-                let mut resp = vec![];
-                match script_id {
-                    None => {
-                        for d in data.v {
-                            let data_name = MODEL_MAP.get_entry(d.i, lang);
-                            let data = DataDeviceOneResponse {
-                                name: data_name.name.to_string(),
-                                data_id: d.i,
-                                unit: data_name.unit.to_string(),
-                                data: TimeDate { time: data.t, data: d.v },
-                            };
-                            resp.push(data)
-                        }
-                    }
-                    Some(id) => {
-                        let map = DecodeScriptEntity::find_by_id(id).one(conn).await?;
-                        match map {
-                            None => {
-                                return Ok(DataDeviceOneResponseWrap {
-                                    counts: 0,
-                                    data: vec![],
-                                    update: Timestamp::now(),
-                                })
-                            }
-                            Some(map) => {
-                                let map: HashMap<_, _> =
-                                    map.map.iter().map(|it| (it.id, it)).collect();
-                                for d in data.v {
-                                    if let Some(map) = map.get(&d.i) {
-                                        let data = DataDeviceOneResponse {
-                                            name: map.name.to_string(),
-                                            data_id: d.i,
-                                            unit: map.unit.to_string(),
-                                            data: TimeDate { time: data.t, data: d.v },
-                                        };
-                                        resp.push(data)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
 
-                resp.sort_by(|pre, cur| pre.data_id.cmp(&cur.data_id));
-                let resp = DataDeviceOneResponseWrap {
-                    counts: resp.len() as i64,
-                    data: resp,
-                    update: Timestamp::now(),
-                };
+        resp.sort_by(|pre, cur| pre.data_id.cmp(&cur.data_id));
+        let resp = DataDeviceOneResponseWrap {
+            counts: resp.len() as i64,
+            data: resp,
+            update: Timestamp::now(),
+        };
 
-                redis_conn.set(&key, &resp).await?;
-                Ok(resp)
-            }
-        }
+        Ok(resp)
     }
 }

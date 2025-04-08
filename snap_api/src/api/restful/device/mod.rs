@@ -30,6 +30,3 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         .nest("/product", product::router())
 }
 
-#[derive(OpenApi)]
-#[openapi(paths(devices::get_all_device))]
-pub(super) struct DeviceApi;

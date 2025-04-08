@@ -73,6 +73,26 @@ pub enum ProductType {
 sea_string_type!(ProductType);
 
 #[derive(
+    serde::Deserialize,
+    serde::Serialize,
+    redis_macros::FromRedisValue,
+    redis_macros::ToRedisArgs,
+    Copy,
+    Clone,
+    Debug,
+    strum::AsRefStr,
+    strum::EnumString,
+    Eq,
+    PartialEq
+)]
+pub enum MqttType {
+    Snap,
+    Gateway,
+    Integration
+}
+sea_string_type!(MqttType);
+
+#[derive(
     Copy,
     Clone,
     Debug,

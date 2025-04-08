@@ -66,6 +66,14 @@ pub(crate) struct DeviceGroupResp {
     pub(crate) devices: Option<Vec<DeviceResp>>,
 }
 
+#[inline]
+pub fn cmp_period(period: i32, now: u64, active: &Option<Timestamp>) -> bool {
+    match active {
+        None => false,
+        Some(active) => (now - active.timestamp_millis()) < ((period as u64) * 2000),
+    }
+}
+
 impl DeviceGroupService {
     async fn create<C: ConnectionTrait, R: redis::aio::ConnectionLike>(
         group: ReqDeviceGroup,
@@ -490,6 +498,8 @@ impl DeviceGroupService {
             order_device.into_iter().map(|item| (item.id, item)).collect();
         let mut v = Vec::with_capacity(order_device.len());
 
+        let now_time = Timestamp::now().timestamp_millis();
+
         for order in orders {
             if let Some(device) = order_device.remove(&order.device_id) {
                 let product = GLOBAL_PRODUCT_NAME.get_by_id(device.product_id);
@@ -505,7 +515,8 @@ impl DeviceGroupService {
                                 id: device.id.into(),
                                 name: device.name.into(),
                                 blue_name: blue_function.remove(&device.id),
-                                online: device.online.into(),
+                                online: Some(cmp_period(device.period, now_time, &device.active_time)),
+                                period: None,
                                 charge: node.charge.into(),
                                 battery: node.battery,
                                 description: device.description.into(),
@@ -530,7 +541,8 @@ impl DeviceGroupService {
                         id: device.id.into(),
                         name: device.name.into(),
                         blue_name: blue_function.remove(&device.id),
-                        online: device.online.into(),
+                        online: Some(cmp_period(device.period, now_time, &device.active_time)),
+                        period: None,
                         charge: None,
                         battery: None,
                         description: device.description.into(),
@@ -564,7 +576,8 @@ impl DeviceGroupService {
                                 id: device.id.into(),
                                 name: device.name.into(),
                                 blue_name: blue_function.remove(&device.id),
-                                online: device.online.into(),
+                                online: Some(cmp_period(device.period, now_time, &device.active_time)),
+                                period: None,
                                 charge: NodeInfo::load_charge(node.dev_addr, redis).await?,
                                 battery: NodeInfo::load_battery(node.dev_addr, redis).await?,
                                 description: device.description.into(),
@@ -586,7 +599,8 @@ impl DeviceGroupService {
                         id: device.id.into(),
                         name: device.name.into(),
                         blue_name: None,
-                        online: device.online.into(),
+                        online: Some(cmp_period(device.period, now_time, &device.active_time)),
+                        period: None,
                         charge: None,
                         battery: None,
                         description: device.description.into(),

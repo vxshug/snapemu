@@ -1,7 +1,7 @@
 use crate::error::{ApiError, ApiResult};
 use crate::{tt, CurrentUser};
-use sea_orm::ColumnTrait;
 use sea_orm::{ActiveModelTrait, ActiveValue, QueryFilter};
+use sea_orm::{ColumnTrait, IntoActiveModel};
 
 use crate::man::DeviceQueryClient;
 use crate::service::device::define::DeviceParameter;
@@ -91,6 +91,8 @@ impl LoRaGateService {
             device_id: ActiveValue::Set(device.id),
             region: ActiveValue::Set(req.region),
             eui: ActiveValue::Set(req.eui),
+            product: Default::default(),
+            config: Default::default(),
         };
         let gate = gate.insert(conn).await?;
 
@@ -120,6 +122,7 @@ impl LoRaGateService {
             }
             Some(gate) => {
                 GatewayInfo::unregister(gate.eui, redis).await?;
+                gate.into_active_model().delete(conn).await?;
             }
         }
         Ok(())
