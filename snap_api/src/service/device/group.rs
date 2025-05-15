@@ -525,10 +525,7 @@ impl DeviceGroupService {
                                 device_type: device.device_type.into(),
                                 product_type: None,
                                 create_time: None,
-                                active_time: device_info::snap::SnapDeviceInfo::load_active_time(
-                                    node.eui, redis,
-                                )
-                                .await?,
+                                active_time: device.active_time,
                                 data,
                                 script: None,
                                 product_id,
@@ -561,8 +558,7 @@ impl DeviceGroupService {
                     DeviceType::LoRaNode => {
                         let data = last_data.remove(&device.id);
                         if let Some(node) = node_device.remove(&device.id) {
-                            let active_time =
-                                NodeInfo::load_active_time(node.dev_addr, redis).await?;
+                            let active_time = device.active_time;
                             if let Some(active_time) = active_time {
                                 let time = Timestamp::now().timestamp_millis()
                                     - active_time.timestamp_millis();
@@ -609,7 +605,7 @@ impl DeviceGroupService {
                         device_type: device.device_type.into(),
                         product_type: None,
                         create_time: None,
-                        active_time: GatewayInfo::load_active_time(device.eui, redis).await?,
+                        active_time: device.active_time,
                         data: None,
                         script: None,
                         product_id,
