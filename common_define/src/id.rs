@@ -15,7 +15,8 @@ use std::str::FromStr;
     PartialEq,
     Default,
     Ord,
-    PartialOrd
+    PartialOrd,
+    utoipa::ToSchema
 )]
 #[serde(transparent)]
 pub struct Id(pub u64);

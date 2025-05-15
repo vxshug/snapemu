@@ -486,26 +486,24 @@ pub struct DownloadData {
     pub up_count: Option<u32>,
     pub bytes: Bytes,
     pub id: u32,
-    pub forward: Option<ClientId>,
 }
 
 impl DownloadData {
     pub(crate) fn new_io<T: CommandBuilder>(command: T) -> Self {
         let bytes = command.data();
-        Self { id: 0, up_count: None, port: 3, bytes, forward: None }
+        Self { id: 0, up_count: None, port: 3, bytes }
     }
     pub(crate) fn new_data<D: Into<Bytes>>(data: D) -> Self {
         let bytes = data.into();
-        Self { id: 0, up_count: None, bytes, port: 2, forward: None }
+        Self { id: 0, up_count: None, bytes, port: 2 }
     }
-    pub(crate) fn new_data_with_id_and_forward<D: Into<Bytes>>(
+    pub(crate) fn new_data_with_id<D: Into<Bytes>>(
         data: D,
         id: u32,
-        forward: ClientId,
         port: u8,
     ) -> Self {
         let bytes = data.into();
-        Self { id, up_count: None, bytes, port, forward: Some(forward) }
+        Self { id, up_count: None, bytes, port }
     }
 }
 

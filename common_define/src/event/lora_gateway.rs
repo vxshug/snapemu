@@ -6,14 +6,9 @@ use serde::{Deserialize, Serialize};
 pub struct GatewayEvent {
     pub eui: Eui,
     pub time: Timestamp,
-    pub source: GatewaySource,
     pub gateway_event: GatewayEventType,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-pub struct GatewaySource {
-    pub ip: Option<String>,
-}
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]

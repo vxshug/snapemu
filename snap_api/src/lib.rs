@@ -64,7 +64,8 @@ static MODEL_MAP: Lazy<snap_model::ModelMap> = Lazy::new(|| {
 struct AppState {
     db: sea_orm::DatabaseConnection,
     redis: RedisClient,
-    influx_client: InfluxDbClient
+    influx_client: InfluxDbClient,
+    rpc: snap_proto::manager::manager_client::ManagerClient<tonic::transport::Channel>,
 }
 
 const USER_TAG: &str = "user";
@@ -159,31 +160,19 @@ pub async fn run(config_path: String, env_prefix: String) {
     let redis_pool = RedisClient::get_client();
     let db = load_db().await;
     migration::Migrator::up(&db, None).await.unwrap();
-    let redis: RedisClient = RedisClient::get_client();
-    let mut consumer = RedisRecv::new(redis.get_pubsub().await.unwrap());
-    consumer.subscribe(DeviceEvent::KAFKA_TOPIC).await.unwrap();
     let event = NodeEventManager::new();
-    let event1 = event.clone();
+    let event_server = event.clone();
 
+    tokio::task::spawn(async move {
+        event_server.start().await;
+    });
     let timeout_db = db.clone();
     tokio::spawn(async move {
         clean_timeout_device_data(timeout_db).await;
     });
-    tokio::spawn(async move {
-        loop {
-            let mut message = consumer.message();
-            while let Some(msg) = message.next().await {
-                match serde_json::from_slice::<DeviceEvent>(msg.get_payload_bytes()) {
-                    Ok(e) => event1.broadcast(e),
-                    Err(e) => {
-                        warn!("{}", e)
-                    }
-                }
-            }
-        }
-    });
+    let rpc = snap_proto::manager::manager_client::ManagerClient::connect(load_config().api.grpc.clone()).await.unwrap();
     let tsdb = load_tsdb();
-    let state = AppState { db, redis: redis_pool.clone(), influx_client: tsdb };
+    let state = AppState { db, redis: redis_pool.clone(), influx_client: tsdb, rpc };
     let products = SnapProductInfoEntity::find().all(&state.db).await.unwrap();
 
     GLOBAL_PRODUCT_NAME.replace(products);

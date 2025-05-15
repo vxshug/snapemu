@@ -3,7 +3,6 @@ use crate::service::integration::IntegrationService;
 use crate::{tt, CurrentUser};
 use common_define::db::{
     SnapIntegrationMqttActiveModel, SnapIntegrationMqttColumn, SnapIntegrationMqttEntity,
-    SnapIntegrationMqttModel,
 };
 use common_define::time::Timestamp;
 use common_define::Id;
@@ -21,6 +20,9 @@ pub struct IntegrationMqttReq {
 
 #[derive(serde::Serialize, utoipa::ToSchema)]
 pub struct MqttToken {
+    /// Integration Id
+    #[schema(example = "1")]
+    id: Id,
     /// Integration name
     #[schema(example = "gateway")]
     name: String,
@@ -77,6 +79,7 @@ impl IntegrationService {
         let model = model.insert(conn).await?;
 
         Ok(MqttToken {
+            id: model.id,
             name: model.name,
             enable: model.enable,
             username: model.username,
@@ -96,6 +99,7 @@ impl IntegrationService {
         let tokens: Vec<MqttToken> = tokens
             .into_iter()
             .map(|item| MqttToken {
+                id: item.id,
                 name: item.name,
                 enable: item.enable,
                 username: item.username,

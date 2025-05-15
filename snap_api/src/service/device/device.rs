@@ -206,7 +206,6 @@ pub struct DeviceModify {
     pub class_c: Option<bool>,
     pub product_id: Option<Id>,
     pub product: Option<String>,
-    pub config: Option<GwConfig>,
 }
 
 impl From<DeviceLoraNodeModel> for LoRaNodeDeviceInfo {
@@ -888,20 +887,6 @@ impl DeviceService {
         if let Some(product_id) = info.product_id {
             if Some(product_id) != device_with_auth.device.product_id {
                 device_active.product_id = ActiveValue::Set(Some(product_id));
-            }
-        }
-        if device_with_auth.device.device_type == DeviceType::LoRaGate {
-            let gate = DeviceLoraGateEntity::find().filter(DeviceLoraGateColumn::DeviceId.eq(device_with_auth.device.id)).one(conn).await?;
-            if let Some(gate) = gate {
-                let mut gate = gate.into_active_model();
-                if let Some(config) = info.config {
-                    let config_s = serde_json::to_string(&config)?;
-                    gate.config = ActiveValue::Set(config_s);
-                }
-                if let Some(product) = info.product {
-                    gate.product = ActiveValue::Set(product);
-                }
-                gate.update(conn).await?;
             }
         }
         if let Some(script_id) = info.script {

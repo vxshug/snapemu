@@ -38,6 +38,8 @@ pub struct MqttDownload {
     conn: mpsc::Sender<MqttMessage>,
 }
 
+pub struct RedisMessageBirge {}
+
 impl MqttDownload {
     pub async fn forward_status(
         &mut self,

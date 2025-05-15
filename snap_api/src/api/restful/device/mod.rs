@@ -3,7 +3,7 @@ use utoipa_axum::router::OpenApiRouter;
 
 mod devices;
 mod group;
-mod lorawan;
+mod config;
 mod order;
 mod query;
 use crate::AppState;
@@ -26,7 +26,7 @@ pub(crate) fn router() -> OpenApiRouter<AppState> {
         // .nest("/io", io::router())
         .nest("/log", log::router())
         .nest("/query", query::router())
-        // .nest("/lorawan", lorawan::router())
+        .nest("/config", config::router())
         .nest("/product", product::router())
 }
 

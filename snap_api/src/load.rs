@@ -42,6 +42,7 @@ impl Default for AppConfig {
                 host: "0.0.0.0".to_string(),
                 port: 8080,
                 eui_mask: _default_eui_mask(),
+                grpc: _default_grpc(),
             },
             device_data_timeout_day: None,
         }
@@ -113,6 +114,12 @@ pub struct ApiConfig {
     pub port: u16,
     #[serde(default = "_default_eui_mask")]
     pub eui_mask: u64,
+    #[serde(default = "_default_grpc")]
+    pub grpc: String,
+}
+
+fn _default_grpc() -> String {
+    "http://localhost:5100".to_string()
 }
 
 fn _default_host() -> String {

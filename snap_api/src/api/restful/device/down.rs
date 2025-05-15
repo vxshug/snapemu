@@ -6,7 +6,7 @@ use crate::{get_current_user, AppState};
 use axum::extract::State;
 use base64::Engine;
 use common_define::db::{SnapDownLinkActiveModel, SnapDownLinkColumn, SnapDownLinkEntity};
-use common_define::event::{DeviceEvent, DownEvent};
+use common_define::event::{DeviceEvent, DownloadMessage};
 use common_define::product::DeviceType;
 use common_define::time::Timestamp;
 use common_define::Id;
@@ -72,8 +72,7 @@ async fn post_down(
         DeviceService::query_one_with_auth(user.id, id, conn).await?;
     match device.device_type {
         DeviceType::Snap => {
-            let event = DownEvent {
-                device: common_define::event::DeviceType::Snap,
+            let event = DownloadMessage {
                 eui: device.eui,
                 port: data.port.unwrap_or(2),
                 data: data.data,
@@ -83,8 +82,7 @@ async fn post_down(
             conn.publish(DeviceEvent::DOWN_TOPIC, data).await?;
         }
         DeviceType::LoRaNode => {
-            let event = DownEvent {
-                device: common_define::event::DeviceType::LoRaNode,
+            let event = DownloadMessage {
                 eui: device.eui,
                 port: data.port.unwrap_or(2),
                 data: data.data,

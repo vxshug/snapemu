@@ -8,13 +8,24 @@ use std::sync::Mutex;
 use std::time::Duration;
 use bytes::Bytes;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use serde::Deserialize;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
 use common_define::db::{DbErr, DeviceLoraGateColumn, DeviceLoraGateEntity, Eui};
-use crate::man::gw::{GwCmd, GwCmdResponse, GwMsgType, MsgData};
+use common_define::event::DownloadMessage;
+use crate::event::{config_cache, update_config_cache};
+use crate::man::gw::{DataWrapper, GwCmd, GwCmdResponse, ShellCmd};
 use crate::man::Id;
+use crate::man::lora::{LoRaNode, LoRaNodeManager};
 use crate::protocol::mqtt::{LinkRx, LinkTx, Notification};
 
+
+#[derive(Debug, Deserialize)]
+pub struct MqttDownloadMessage {
+    #[serde(default)]
+    pub port: u8,
+    pub payload: String,
+}
 
 const MAX_SEND_SIZE: usize = 900;
 
@@ -32,8 +43,6 @@ pub struct MqPublisher {
 pub enum MqttError {
     #[error("UserNotFound")]
     UserNotFound,
-    #[error("ProductNotFound")]
-    ProductNotFound,
     #[error("EuiNotFound")]
     EuiNotFound,
     #[error("TopicNotFound")]
@@ -65,11 +74,12 @@ impl MqPublisher {
 pub struct MessageProcessor {
     rx: LinkRx,
     sender: mpsc::Sender<MqttMessage>,
+    down: mpsc::Sender<DownloadMessage>
 }
 
 impl MessageProcessor {
-    pub fn new_with_sender(rx: LinkRx, sender: mpsc::Sender<MqttMessage>) -> Self {
-        Self { sender, rx }
+    pub fn new_with_sender(rx: LinkRx, sender: mpsc::Sender<MqttMessage>, down: mpsc::Sender<DownloadMessage>) -> Self {
+        Self { sender, rx, down }
     }
 
 
@@ -78,7 +88,7 @@ impl MessageProcessor {
             if let Some(Notification::Forward(publish)) = message {
                 match String::from_utf8(publish.publish.topic.to_vec()) {
                     Ok(topic) => {
-                        tokio::spawn(process_mqtt(MqttMessage::new(topic, publish.publish.payload)));
+                        tokio::spawn(process_mqtt(MqttMessage::new(topic, publish.publish.payload), self.down.clone()));
                     }
                     Err(_) => {
                         warn!("Snap Mqtt message contained invalid UTF-8");
@@ -89,7 +99,7 @@ impl MessageProcessor {
     }
 }
 
-async fn process_mqtt(message: MqttMessage) -> Result<(), MqttError> {
+async fn process_mqtt(message: MqttMessage, down: mpsc::Sender<DownloadMessage>) -> Result<(), MqttError> {
     let mut topic = message.topic.splitn(3, '/');
     topic.next();
     if let Some(user_id) = topic.next() {
@@ -97,53 +107,63 @@ async fn process_mqtt(message: MqttMessage) -> Result<(), MqttError> {
         let topic = topic.next().ok_or(MqttError::TopicNotFound)?;
         if topic.starts_with("gw") {
             process_gateway(id, message).await?;
+            return Ok(());
+        }
+        if topic.starts_with("device") {
+            process_gateway(id, message).await?;
+            return Ok(());
         }
     }
     Ok(())
 }
-
+async fn process_downlink(user_id: Id, message: MqttMessage, down: mpsc::Sender<DownloadMessage>) -> Result<(), MqttError> {
+    let mut topic = message.topic.split( '/');
+    topic.next();
+    topic.next();
+    topic.next();
+    let eui_s = topic.next().ok_or(MqttError::EuiNotFound)?;
+    let action = topic.next().ok_or(MqttError::ActionNotFound)?;
+    let eui = Eui::from_str(eui_s)?;
+    if action == "forward" {
+        if let Some(node) = LoRaNodeManager::get_node_by_eui(eui).await? {
+            if node.info.user_id == Some(user_id) {
+                let data: MqttDownloadMessage = serde_json::from_slice(&message.payload)?;
+                down.send(DownloadMessage {
+                    eui,
+                    port: data.port,
+                    data: data.payload,
+                }).await;
+            }
+        }
+    }
+    Ok(())
+}
 async fn process_gateway(user_id: Id, message: MqttMessage) -> Result<(), MqttError> {
     let mut topic = message.topic.split( '/');
     topic.next();
     topic.next();
     topic.next();
-    let product = topic.next().ok_or(MqttError::ProductNotFound)?;
     let eui_s = topic.next().ok_or(MqttError::EuiNotFound)?;
     let action = topic.next().ok_or(MqttError::ActionNotFound)?;
     if "up" == action {
-        let response: serde_json::Result<GwCmdResponse> =  serde_json::from_slice(message.payload.as_ref());
-        if response.is_ok() {
-            return Ok(())
-        }
+        let cmd: GwCmdResponse = serde_json::from_slice(message.payload.as_ref()).map_err(|e| MqttError::SerdeError(e))?;
         let eui = Eui::from_str(eui_s)?;
         let gate = DeviceLoraGateEntity::find().filter(DeviceLoraGateColumn::Eui.eq(eui)).one(&GLOBAL_STATE.db).await?;
         if let Some(gate) = gate {
-            if !gate.config.is_empty() {
-                let config = gate.config;
-                let mut send_length = 0usize;
-                let down_topic = format!("user/{}/gw/{}/{}/down", user_id, product, eui_s);
-
-                let mut payload = GwCmd::new(product.to_string(), GwMsgType::ShellCmd, MsgData::new("echo -n '' > /root/lora/packet_forwarder/lora_pkt_fwd/global_conf.json".to_string(), 1000));
-                let p = serde_json::to_string(&payload)?;
-                GLOBAL_STATE.mq.publish(crate::integration::mqtt::MqttMessage::new(p, down_topic.clone())).await?;
-                loop {
-                    tokio::time::sleep(Duration::from_millis(1000)).await;
-                    if (config.len() - send_length) < MAX_SEND_SIZE {
-                        payload.data.cmd_str = format!("echo -n '{}' >> /root/lora/packet_forwarder/lora_pkt_fwd/global_conf.json", &config[send_length..]);
-                        send_length += config.len();
-                    } else {
-                        payload.data.cmd_str = format!("echo -n '{}' >> /root/lora/packet_forwarder/lora_pkt_fwd/global_conf.json", &config[send_length..send_length+MAX_SEND_SIZE]);
-                        send_length += MAX_SEND_SIZE;
-                    };
-                    let p = serde_json::to_string(&payload)?;
-                    GLOBAL_STATE.mq.publish(crate::integration::mqtt::MqttMessage::new(p, down_topic.clone())).await?;
-                    if send_length >= config.len() {
-                        break;
+            match cmd {
+                GwCmdResponse::ShellCmd(DataWrapper { data }) => {}
+                GwCmdResponse::Config(DataWrapper { data: config }) => {
+                    if let Some(sender) = config_cache(&gate.device_id) {
+                        sender.send(config);
+                    }
+                }
+                GwCmdResponse::UpdateConfig(DataWrapper { data: config }) => {
+                    if let Some(sender) = update_config_cache(&gate.device_id) {
+                        sender.send(config);
                     }
                 }
             }
         }
-
     }
     Ok(())
 }

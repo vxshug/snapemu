@@ -28,7 +28,7 @@ use utils::base64::EncodeBase64;
 
 use crate::db::DbDecodeData;
 use crate::decode::{DecodeData, RawData};
-use crate::event::LoRaNodeEvent;
+use crate::event::DeviceManagerServer;
 use crate::integration::mqtt::{MqttMessage, MqttRawData};
 use crate::man::redis_client::RedisClient;
 use crate::protocol::lora::join_request::RequestJoin;
@@ -184,7 +184,7 @@ async fn decode_payload(
         lorawan::parser::FRMPayload::Data(data) => {
             tracing::info!("UpLink: {:02X?}", data);
             node.pull_task(data, push_data, header).await?;
-            LoRaNodeEvent::uplink(header, node, push_data, data, &mut redis).await?;
+            GLOBAL_STATE.event.lora_node_uplink_data(header, node, push_data, data).await;
             match node.info.script {
                 Some(o) => {
                     let script =
@@ -306,7 +306,13 @@ async fn decode_enc_payload(
     gw: LoRaGate,
 ) -> DeviceResult {
     let mut node = LoRaNodeManager::get_node_with_gateway(dev_addr, gw).await?;
-
+    if let Some(node) = DevicesEntity::find_by_id(node.info.device_id)
+        .one(&GLOBAL_STATE.db)
+        .await? {
+        let mut model = node.into_active_model();
+        model.active_time = ActiveValue::Set(Some(Timestamp::now()));
+        model.update(&GLOBAL_STATE.db).await?;
+    }
     if up_count < 5 {
         let otaa_info = node.get_otaa_info().await?;
         if let Some(otaa_info) = otaa_info {

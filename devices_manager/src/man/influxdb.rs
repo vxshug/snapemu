@@ -25,10 +25,6 @@ pub struct InfluxDbClient {
 }
 
 impl InfluxDbClient {
-    pub async fn write<S: ModelSource>(&self, data: impl Into<DbDecodeData>, device_id: Id, map: S) -> Result<(), InfluxError> {
-        let data = data.into().influxdb_build(device_id, map)?;
-        Ok(self.client.write(&self.bucket, tokio_stream::iter(data)).await?)
-    }
 
     pub async fn write_js(&self, data: DecodeData, device_id: Id) -> Result<(), InfluxError> {
         let timestamp = Utc::now().timestamp_nanos_opt().ok_or(DataError::Time)?;

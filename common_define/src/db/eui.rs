@@ -6,7 +6,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
 
 #[derive(derive_more::From, Clone, Copy, Hash, Eq, PartialEq, Default, Ord, PartialOrd)]
-pub struct Eui(u64);
+pub struct Eui(pub u64);
 
 impl Debug for Eui {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

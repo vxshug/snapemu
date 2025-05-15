@@ -7,6 +7,7 @@ pub mod mqtt;
 pub mod redis_client;
 pub mod influxdb;
 pub(crate) mod gw;
+pub mod device_active;
 
 pub use downlink::DownlinkManager;
 
