@@ -155,12 +155,6 @@ pub async fn run(config: String, env_prefix: String) {
 
     let redis_client = RedisClient::get_client();
     let recv = RedisRecv::new(redis_client.get_pubsub().await.unwrap());
-    let mut consumer = RedisRecv::new(redis_client.get_pubsub().await.unwrap());
-    consumer.subscribe(DeviceEvent::DOWN_TOPIC).await.unwrap();
-    tokio::spawn(async move {
-        DownlinkManager::new(consumer).start_downlink().await;
-    });
-
 
     MQ::new(recv).await.start().await
 }

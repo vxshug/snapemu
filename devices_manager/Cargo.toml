@@ -11,6 +11,7 @@ bytes.workspace = true
 utils.workspace = true
 snap_config.workspace = true
 snap_model.workspace = true
+snap_proto.workspace = true
 common_define.workspace = true
 async-trait.workspace = true
 arc-swap.workspace = true
@@ -60,3 +61,6 @@ rand.workspace = true
 once_cell.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+prost.workspace = true
+tonic.workspace = true

@@ -10,6 +10,7 @@ device_info.workspace = true
 snap_config.workspace = true
 snap_model.workspace = true
 snap_i18n.workspace = true
+snap_proto.workspace = true
 rust-i18n.workspace = true
 common_define.workspace = true
 utils.workspace = true
@@ -67,6 +68,9 @@ language-tags.workspace = true
 
 influxdb2.workspace = true
 influxdb2-structmap.workspace = true
+
+tonic.workspace = true
+prost.workspace = true
 
 utoipa = { workspace = true, features = ["axum_extras"] }
 utoipa-scalar = { workspace = true, features = ["axum"] }

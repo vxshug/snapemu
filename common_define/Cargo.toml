@@ -15,7 +15,7 @@ lorawan.workspace = true
 derive_more.workspace = true
 derive-new.workspace = true
 hex.workspace = true
-const_format.workspace = true
+utoipa.workspace = true
 serde_json.workspace = true
 serde_repr.workspace = true
 redis-macros.workspace = true
@@ -24,4 +24,5 @@ rand.workspace = true
 thiserror.workspace = true
 strum = { workspace = true, features = ["derive"] }
 sea-orm.workspace = true
+prost.workspace = true
 

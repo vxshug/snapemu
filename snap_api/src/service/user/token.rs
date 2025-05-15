@@ -99,7 +99,7 @@ impl TokenService {
     }
 
     pub(crate) fn auth_token(token: &UserTokenModel) -> ApiResult<TokenType> {
-        let token_type = TokenType::from_str(token.token_type.as_str()).map_err(|e| {
+        let token_type = TokenType::from_str(token.token_type.as_str()).map_err(|_e| {
             warn!("invalid token type: `{}`", token.token_type);
             ApiError::Access(tt!("messages.user.login.token_err"))
         })?;

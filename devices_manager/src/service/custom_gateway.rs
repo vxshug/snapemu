@@ -18,6 +18,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilt
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
+use common_define::event::DownloadMessage;
 use utils::base64::EncodeBase64;
 
 pub async fn start_process_snap(mut rx: mpsc::Receiver<MqttMessage>) {

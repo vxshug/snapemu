@@ -20,7 +20,7 @@ use sea_orm::QueryFilter;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::Id;
-use crate::event::LoRaNodeEvent;
+use crate::event::DeviceManagerServer;
 use crate::man::data::DownloadData;
 use crate::man::redis_client::RedisClient;
 use crate::protocol::lora::payload::LoRaPayload;
@@ -247,8 +247,7 @@ impl LoRaNode {
                             builder.build_with_task(&resp, rand::random(), push_data.version)?;
                         self.down_link(down).await?;
                     }
-                    let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
-                    LoRaNodeEvent::down_link(push_data, &self.info, Some(&task), &mut conn).await?;
+                    GLOBAL_STATE.event.lora_node_downlink_data(push_data, &self.info, Some(&task)).await;
                 }
             }
             None => {
@@ -267,8 +266,7 @@ impl LoRaNode {
                 if let Some(ack) = response {
                     self.down_link(ack).await?;
                     self.update_down_count().await?;
-                    let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
-                    LoRaNodeEvent::down_link(push_data, &self.info, None, &mut conn).await?;
+                    GLOBAL_STATE.event.lora_node_downlink_data(push_data, &self.info, None).await;
                 }
             }
         }
@@ -379,7 +377,7 @@ impl LoRaNodeManager {
         let keys = lora::join_accept::NodeKeys::new(&info.app_key, app_nonce, net_id, dev_nonce);
         let mut conn = RedisClient::get_client().get_multiplexed_conn().await?;
 
-        LoRaNodeEvent::join_request(data, &info, &mut conn).await?;
+        GLOBAL_STATE.event.lora_node_join_request(data, &info).await;
         let join_builder = JoinRespDataBuilder::new(&info, data);
         let resp = join_builder.build(info.dev_addr, app_nonce, net_id, &info.app_key)?;
 
@@ -396,7 +394,7 @@ impl LoRaNodeManager {
 
         conn.set(active_key, info_json).await?;
         gw.down_link(resp).await?;
-        LoRaNodeEvent::join_accept(info.dev_addr, &info, &mut conn).await?;
+        GLOBAL_STATE.event.lora_node_join_accept(info.dev_addr, &info).await;
         debug!("Join Request");
         Ok(())
     }

@@ -7,8 +7,6 @@ use crate::man::Id;
 use crate::protocol::mqtt::{MqttAuth, MqttAuthRequest};
 
 pub mod down;
-mod up;
-
 
 pub fn mqtt_auth_fn(mqtt_auth_request: MqttAuthRequest) -> Pin<Box<dyn std::future::Future<Output = Result<MqttAuth, crate::protocol::mqtt::LinkError>> + Send>> {
     Box::pin(async move {

@@ -10,13 +10,15 @@ members = [
     "snap_i18n",
     "device_info",
     "migration",
-    "hash_name"
+    "hash_name",
+    "snap_proto"
 ]
 
 [workspace.dependencies]
 snap_config = { path = "./snap_config" }
 device_info = { path = "./device_info" }
 snap_model = { path = "./snap_model" }
+snap_proto = { path = "./snap_proto" }
 snap_i18n = { path = "./snap_i18n" }
 utils = { path = "./utils" }
 common_define = { path = "./common_define" }
@@ -115,3 +117,8 @@ uuid = "1.3"
 utoipa-scalar = { version = "0.2.0", features = ["axum"] }
 utoipa = { version = "5.2.0", features = ["axum_extras"] }
 utoipa-axum = { version = "0.1.2" }
+
+tonic = "0.13.1"
+prost = "0.13.5"
+tonic-build = "0.13.1"
+

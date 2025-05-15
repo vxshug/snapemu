@@ -6,8 +6,12 @@ use std::sync::Arc;
 use std::thread;
 use std::thread::Thread;
 use tracing::info;
+use common_define::event::DeviceEvent;
+use crate::event::{DeviceEventSender, DeviceManagerServer};
+use crate::man::DownlinkManager;
 use crate::man::influxdb::InfluxDbClient;
 use crate::man::mqtt::{MessageProcessor, MqPublisher};
+use crate::man::redis_client::{RedisClient, RedisRecv};
 use crate::mqtt::mqtt_auth_fn;
 use crate::protocol::lora::source::{listen_udp, LoRaUdp};
 use crate::protocol::mqtt;
@@ -56,6 +60,12 @@ pub struct DeviceConfigInner {
     pub topic: DeviceTopicConfig,
     pub lorawan: LoRaConfig,
     pub model: Option<ModelConfig>,
+    #[serde(default = "_default_rpc_port")]
+    pub rpc_port: u16,
+}
+
+fn _default_rpc_port() -> u16 {
+    5100
 }
 
 #[derive(Debug, Deserialize)]
@@ -108,7 +118,8 @@ pub struct State {
     pub db: sea_orm::DatabaseConnection,
     pub tsdb: InfluxDbClient,
     pub udp: LoRaUdp,
-    pub mq: MqPublisher
+    pub mq: MqPublisher,
+    pub event: DeviceEventSender
 }
 pub(crate) fn load_state() -> State {
     tokio::task::block_in_place(move || {
@@ -126,15 +137,33 @@ pub(crate) fn load_state() -> State {
             let (mut link_tx, link_rx) = b.link("client").unwrap();
             link_tx.subscribe("#").unwrap();
 
+            let (download_tx, download_rx) = tokio::sync::mpsc::channel(1000);
+
+            let redis_client = RedisClient::get_client();
+            let mut consumer = RedisRecv::new(redis_client.get_pubsub().await.unwrap());
+            consumer.subscribe(DeviceEvent::DOWN_TOPIC).await.unwrap();
+            tokio::spawn(async move {
+                DownlinkManager::new(download_rx).start_downlink().await;
+            });
+
             let (tx, rx) = tokio::sync::mpsc::channel(100);
-            let subscriber = MessageProcessor::new_with_sender(link_rx, tx);
+            let subscriber = MessageProcessor::new_with_sender(link_rx, tx, download_tx);
             tokio::spawn(subscriber.start());
             tokio::spawn(start_process_snap(rx));
             let broker_thread = thread::Builder::new().name("broker".to_string());
             broker_thread.spawn(move || {
                 b.start().unwrap();
             }).unwrap();
-            State { db, udp, tsdb, mq: MqPublisher::new(link_tx) }
+            let (event_tx, _event_rx) = tokio::sync::broadcast::channel(100);
+            let server = DeviceManagerServer::new(event_tx.clone());
+            let rpc_port = load_config().device.rpc_port;
+            let addr = format!("0.0.0.0:{rpc_port}").parse().unwrap();
+            info!("grpc in {:?}", addr);
+            tokio::spawn(tonic::transport::Server::builder()
+                                 .add_service(snap_proto::manager::manager_server::ManagerServer::new(server))
+                                 .serve(addr));
+            let event = DeviceEventSender::new(event_tx);
+            State { db, udp, tsdb, mq: MqPublisher::new(link_tx), event }
         })
     })
 }

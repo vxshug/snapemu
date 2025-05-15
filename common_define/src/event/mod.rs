@@ -33,16 +33,10 @@ pub struct SnapEvent {
     pub data: Vec<u8>,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Clone)]
-#[repr(u8)]
-pub enum DeviceType {
-    LoRaNode = 1,
-    Snap = 2,
-}
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct DownEvent {
-    pub device: DeviceType,
+
+pub struct DownloadMessage {
     pub eui: Eui,
     pub port: u8,
     pub data: String,

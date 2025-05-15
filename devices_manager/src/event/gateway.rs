@@ -1,7 +1,7 @@
 use crate::man::redis_client::RedisClient;
 use crate::protocol::lora;
 use crate::DeviceResult;
-use common_define::event::lora_gateway::{GatewayEventType, GatewaySource};
+use common_define::event::lora_gateway::{GatewayEventType};
 use common_define::lorawan_bridge::GatewayUpData;
 use common_define::time::Timestamp;
 use common_define::{lorawan_bridge, Id};
@@ -23,7 +23,6 @@ impl GatewayEvent {
                             eui: state.eui,
                             time: Timestamp::from_timestamp_millis(state.time.timestamp_millis())
                                 .unwrap_or(Timestamp::now()),
-                            source: GatewaySource { ip: state.source.ip.map(|a| a.to_string()) },
                             gateway_event: GatewayEventType::Status(
                                 common_define::event::lora_gateway::GatewayStatus {
                                     time: st.time,
@@ -58,9 +57,6 @@ impl GatewayEvent {
                                             state.time.timestamp_millis(),
                                         )
                                         .unwrap_or(Timestamp::now()),
-                                        source: GatewaySource {
-                                            ip: state.source.ip.map(|a| a.to_string()),
-                                        },
                                         gateway_event: GatewayEventType::Join(
                                             common_define::event::lora_gateway::JoinPayload {
                                                 app_eui: req.app_eui(),
@@ -80,9 +76,6 @@ impl GatewayEvent {
                                             state.time.timestamp_millis(),
                                         )
                                         .unwrap_or(Timestamp::now()),
-                                        source: GatewaySource {
-                                            ip: state.source.ip.map(|a| a.to_string()),
-                                        },
                                         gateway_event: GatewayEventType::Data(
                                             common_define::event::lora_gateway::DataPayload {
                                                 payload: data.data,

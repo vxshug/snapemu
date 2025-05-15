@@ -7,7 +7,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
 
 #[derive(Into, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct LoRaAddr(u32);
+pub struct LoRaAddr(pub u32);
 
 impl Debug for LoRaAddr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
