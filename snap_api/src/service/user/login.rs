@@ -146,7 +146,7 @@ impl UserService {
             )
             .await?;
 
-        let token = token.ok_or(ApiError::User(tt!("messages.user.login.token_err")))?;
+        let token = token.ok_or(ApiError::Access(tt!("messages.user.login.token_err")))?;
         Ok(token)
     }
 }

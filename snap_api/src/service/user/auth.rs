@@ -145,7 +145,7 @@ static GLOBAL_REQUEST: Lazy<Mutex<HashMap<String, Timestamp>>> =
 async fn authorize_current_user(auth_token: &str) -> ApiResult<RedisToken> {
     let format = auth_token.split_once("Bearer ");
     match format {
-        None => Err(ApiError::User(tt!("messages.user.login.auth_begin"))),
+        None => Err(ApiError::Access(tt!("messages.user.login.auth_begin"))),
         Some((_, auth)) => {
             debug!("auth: {}", auth);
             let mut s = RedisClient::get_client().get().await?;
