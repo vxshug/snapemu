@@ -74,6 +74,8 @@ pub(crate) struct DeviceResp {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) id: Option<Id>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) eui: Option<Eui>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) blue_name: Option<String>,
@@ -910,6 +912,20 @@ impl DeviceService {
         if let Some(_script) = info.reset_script {
             device_active.script = ActiveValue::Set(None);
             NodeInfo::reset_by_eui(device_with_auth.device.eui, NodeInfo::script(), redis).await?;
+        }
+        if device_with_auth.device.device_type == DeviceType::LoRaGate {
+            let gate = device_with_auth
+                .device
+                .find_related(DeviceLoraGateEntity)
+                .one(conn)
+                .await?
+                .ok_or_else(|| ApiError::User("invalid device".into()))?;
+            let mut gate = gate.into_active_model();
+            if let Some(region) = info.region {
+                gate.region = ActiveValue::Set(region);
+
+            }
+            gate.update(conn).await?;
         }
         if device_with_auth.device.device_type == DeviceType::LoRaNode {
             let eui = device_with_auth.device.eui;

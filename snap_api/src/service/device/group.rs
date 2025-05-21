@@ -513,6 +513,7 @@ impl DeviceGroupService {
                         if let Some(node) = snap_device.remove(&device.id) {
                             v.push(DeviceResp {
                                 id: device.id.into(),
+                                eui: Some(device.eui),
                                 name: device.name.into(),
                                 blue_name: blue_function.remove(&device.id),
                                 online: Some(cmp_period(device.period, now_time, &device.active_time)),
@@ -536,6 +537,7 @@ impl DeviceGroupService {
                     }
                     DeviceType::MQTT => v.push(DeviceResp {
                         id: device.id.into(),
+                        eui: Some(device.eui),
                         name: device.name.into(),
                         blue_name: blue_function.remove(&device.id),
                         online: Some(cmp_period(device.period, now_time, &device.active_time)),
@@ -570,6 +572,7 @@ impl DeviceGroupService {
                             }
                             v.push(DeviceResp {
                                 id: device.id.into(),
+                                eui: Some(device.eui),
                                 name: device.name.into(),
                                 blue_name: blue_function.remove(&device.id),
                                 online: Some(cmp_period(device.period, now_time, &device.active_time)),
@@ -593,6 +596,7 @@ impl DeviceGroupService {
                     }
                     DeviceType::LoRaGate => v.push(DeviceResp {
                         id: device.id.into(),
+                        eui: Some(device.eui),
                         name: device.name.into(),
                         blue_name: None,
                         online: Some(cmp_period(device.period, now_time, &device.active_time)),
