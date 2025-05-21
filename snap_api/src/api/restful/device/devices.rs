@@ -103,6 +103,7 @@ async fn get_device(
     };
     let resp = DeviceResp {
         id: device.id.into(),
+        eui: Some(device.eui),
         name: device.name.into(),
         blue_name: None,
         online: Some(cmp_period(device.period, Timestamp::now().timestamp_millis(), &device.active_time)),

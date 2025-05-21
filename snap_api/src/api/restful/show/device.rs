@@ -19,6 +19,7 @@ async fn get_all_device(State(state): State<AppState>) -> ApiResponseResult<Devi
         .into_iter()
         .map(|item| DeviceResp {
             id: item.id.into(),
+            eui: Some(item.eui),
             name: item.name.into(),
             blue_name: None,
             online: None,
