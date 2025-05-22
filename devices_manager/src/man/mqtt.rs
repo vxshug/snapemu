@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
 use common_define::db::{DbErr, DeviceLoraGateColumn, DeviceLoraGateEntity, Eui};
 use common_define::event::DownloadMessage;
-use crate::event::{config_cache, update_config_cache};
+use crate::event::config_cache;
 use crate::man::gw::{DataWrapper, GwCmd, GwCmdResponse, ShellCmd};
 use crate::man::Id;
 use crate::man::lora::{LoRaNode, LoRaNodeManager};
@@ -151,14 +151,14 @@ async fn process_gateway(user_id: Id, message: MqttMessage) -> Result<(), MqttEr
         let gate = DeviceLoraGateEntity::find().filter(DeviceLoraGateColumn::Eui.eq(eui)).one(&GLOBAL_STATE.db).await?;
         if let Some(gate) = gate {
             match cmd {
-                GwCmdResponse::ShellCmd(DataWrapper { data }) => {}
-                GwCmdResponse::Config(DataWrapper { data: config }) => {
-                    if let Some(sender) = config_cache(&gate.device_id) {
+                GwCmdResponse::ShellCmd(DataWrapper { id, data }) => {}
+                GwCmdResponse::Config(DataWrapper { id, data: config }) => {
+                    if let Some(sender) = config_cache(&gate.device_id, id) {
                         sender.send(config);
                     }
                 }
-                GwCmdResponse::UpdateConfig(DataWrapper { data: config }) => {
-                    if let Some(sender) = update_config_cache(&gate.device_id) {
+                GwCmdResponse::UpdateConfig(DataWrapper { id, data: config }) => {
+                    if let Some(sender) = config_cache(&gate.device_id, id) {
                         sender.send(config);
                     }
                 }
