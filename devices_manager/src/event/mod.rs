@@ -4,7 +4,7 @@ mod platform;
 
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::task::{ready, Context, Poll};
 use std::time::Duration;
@@ -69,15 +69,15 @@ impl DeviceManagerServer {
     }
 }
 
-static CONFIG_CACHE: Lazy<Mutex<HashMap<Id, HashMap<usize, oneshot::Sender<GwConfig>>>>> = Lazy::new(||Mutex::new(HashMap::new()));
+static CONFIG_CACHE: Lazy<Mutex<HashMap<Id, HashMap<u32, oneshot::Sender<GwConfig>>>>> = Lazy::new(||Mutex::new(HashMap::new()));
 
-pub fn config_cache(id: &Id, key: usize) -> Option<oneshot::Sender<GwConfig>> {
+pub fn config_cache(id: &Id, key: u32) -> Option<oneshot::Sender<GwConfig>> {
     CONFIG_CACHE.lock().unwrap().get_mut(&id)
         .and_then(|ls| ls.remove(&key))
 }
 
-fn next_id() -> usize {
-    static ID: AtomicUsize = AtomicUsize::new(0);
+fn next_id() -> u32 {
+    static ID: AtomicU32 = AtomicU32::new(0);
     ID.fetch_add(1, Ordering::Relaxed)
 }
 
