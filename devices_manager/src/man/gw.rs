@@ -4,6 +4,7 @@ use derive_new::new;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, new)]
 pub struct DataWrapper<T> {
+    pub id: usize,
     pub data: T,
 }
 

@@ -4,6 +4,7 @@ mod platform;
 
 use std::collections::HashMap;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::task::{ready, Context, Poll};
 use std::time::Duration;
@@ -68,17 +69,17 @@ impl DeviceManagerServer {
     }
 }
 
-static CONFIG_CACHE: Lazy<Mutex<HashMap<Id, oneshot::Sender<GwConfig>>>> = Lazy::new(||Mutex::new(HashMap::new()));
-static UPDATE_CONFIG_CACHE: Lazy<Mutex<HashMap<Id, oneshot::Sender<GwConfig>>>> = Lazy::new(||Mutex::new(HashMap::new()));
+static CONFIG_CACHE: Lazy<Mutex<HashMap<Id, HashMap<usize, oneshot::Sender<GwConfig>>>>> = Lazy::new(||Mutex::new(HashMap::new()));
 
-pub fn config_cache(id: &Id) -> Option<oneshot::Sender<GwConfig>> {
-    CONFIG_CACHE.lock().unwrap().remove(id)
+pub fn config_cache(id: &Id, key: usize) -> Option<oneshot::Sender<GwConfig>> {
+    CONFIG_CACHE.lock().unwrap().get_mut(&id)
+        .and_then(|ls| ls.remove(&key))
 }
 
-pub fn update_config_cache(id: &Id) -> Option<oneshot::Sender<GwConfig>> {
-    UPDATE_CONFIG_CACHE.lock().unwrap().remove(id)
+fn next_id() -> usize {
+    static ID: AtomicUsize = AtomicUsize::new(0);
+    ID.fetch_add(1, Ordering::Relaxed)
 }
-
 
 #[tonic::async_trait]
 impl snap_proto::manager::manager_server::Manager for DeviceManagerServer {
@@ -152,30 +153,29 @@ impl snap_proto::manager::manager_server::Manager for DeviceManagerServer {
         let user_id = Id(request.user_id);
         if let Some(identity) = request.identity {
             let device_id = Id(identity.id);
-            let has_sender = {
-                let mut config_map = CONFIG_CACHE.lock().unwrap();
-                config_map.get(&device_id).is_some()
-            };
-            if has_sender {
-                Err(Status::already_exists(format!("Config for {}", device_id)))
+            let (tx, rx) = oneshot::channel();
+            let key = next_id();
+            if CONFIG_CACHE.lock().unwrap().contains_key(&device_id) {
+                CONFIG_CACHE.lock().unwrap().get_mut(&device_id).unwrap().insert(key, tx);
             } else {
-                let (tx, rx) = oneshot::channel();
-                CONFIG_CACHE.lock().unwrap().insert(device_id, tx);
-                tokio::spawn(async move {
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                    CONFIG_CACHE.lock().unwrap().remove(&device_id);
-                });
-                let eui = Eui(identity.eui);
-                let topic = format!("user/{}/gw/{}/down", user_id, eui);
-                let cmd = GwCmd::Config(DataWrapper::new(()));
-                let payload = serde_json::to_string(&cmd).map_err(|e| Status::internal(e.to_string()))?;
-                GLOBAL_STATE.mq.publish(crate::integration::mqtt::MqttMessage::new(payload, topic)).await;
-                let config = tokio::time::timeout(Duration::from_secs(5), rx).await
-                    .map_err(|e| Status::already_exists("request timeout"))?
-                    .map_err(|e| Status::internal(e.to_string()))?;
-                CONFIG_CACHE.lock().unwrap().remove(&device_id);
-                Ok(Response::new(config))
-            }
+                let mut s = HashMap::new();
+                s.insert(key, tx);
+                CONFIG_CACHE.lock().unwrap().insert(device_id, s);
+            };
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                CONFIG_CACHE.lock().unwrap().get_mut(&device_id).and_then(|map| {map.remove(&key)});
+            });
+            let eui = Eui(identity.eui);
+            let topic = format!("user/{}/gw/{}/down", user_id, eui);
+            let cmd = GwCmd::Config(DataWrapper::new(key,()));
+            let payload = serde_json::to_string(&cmd).map_err(|e| Status::internal(e.to_string()))?;
+            GLOBAL_STATE.mq.publish(crate::integration::mqtt::MqttMessage::new(payload, topic)).await;
+            let config = tokio::time::timeout(Duration::from_secs(5), rx).await
+                .map_err(|e| Status::already_exists("request timeout"))?
+                .map_err(|e| Status::internal(e.to_string()))?;
+            CONFIG_CACHE.lock().unwrap().remove(&device_id);
+            Ok(Response::new(config))
         } else { Err(Status::not_found("Identity not found")) }
     }
 
@@ -184,29 +184,28 @@ impl snap_proto::manager::manager_server::Manager for DeviceManagerServer {
         let user_id = Id(request.user_id);
         if let (Some(identity), Some(config) ) = (request.identity, request.config) {
             let device_id = Id(identity.id);
-            let has_sender = {
-                let mut config_map = UPDATE_CONFIG_CACHE.lock().unwrap();
-                config_map.get(&device_id).is_some()
-            };
-            if has_sender {
-                Err(Status::already_exists(format!("Config for {}", device_id)))
+            let (tx, rx) = oneshot::channel();
+            let key = next_id();
+            if CONFIG_CACHE.lock().unwrap().contains_key(&device_id) {
+                CONFIG_CACHE.lock().unwrap().get_mut(&device_id).unwrap().insert(key, tx);
             } else {
-                let (tx, rx) = oneshot::channel();
-                UPDATE_CONFIG_CACHE.lock().unwrap().insert(device_id, tx);
-                tokio::spawn(async move {
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                    UPDATE_CONFIG_CACHE.lock().unwrap().remove(&device_id);
-                });
-                let eui = Eui(identity.eui);
-                let topic = format!("user/{}/gw/{}/down", user_id, eui);
-                let cmd = GwCmd::UpdateConfig(DataWrapper::new(config));
-                let payload = serde_json::to_string(&cmd).map_err(|e| Status::internal(e.to_string()))?;
-                GLOBAL_STATE.mq.publish(crate::integration::mqtt::MqttMessage::new(payload, topic)).await;
-                let config = tokio::time::timeout(Duration::from_secs(5), rx).await
-                    .map_err(|e| Status::already_exists("request timeout"))?
-                    .map_err(|e| Status::internal(e.to_string()))?;
-                Ok(Response::new(config))
-            }
+                let mut s = HashMap::new();
+                s.insert(key, tx);
+                CONFIG_CACHE.lock().unwrap().insert(device_id, s);
+            };
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                CONFIG_CACHE.lock().unwrap().get_mut(&device_id).and_then(|map| {map.remove(&key)});
+            });
+            let eui = Eui(identity.eui);
+            let topic = format!("user/{}/gw/{}/down", user_id, eui);
+            let cmd = GwCmd::UpdateConfig(DataWrapper::new(key, config));
+            let payload = serde_json::to_string(&cmd).map_err(|e| Status::internal(e.to_string()))?;
+            GLOBAL_STATE.mq.publish(crate::integration::mqtt::MqttMessage::new(payload, topic)).await;
+            let config = tokio::time::timeout(Duration::from_secs(5), rx).await
+                .map_err(|e| Status::already_exists("request timeout"))?
+                .map_err(|e| Status::internal(e.to_string()))?;
+            Ok(Response::new(config))
         } else {
             Err(Status::internal("Invalid UpdateConfigRequest"))
         }
