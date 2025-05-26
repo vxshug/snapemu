@@ -305,8 +305,6 @@ mod device {
                     .col(big_integer(SnapDeviceLoraGate::DeviceId).unique_key())
                     .col(text(SnapDeviceLoraGate::Region))
                     .col(text(SnapDeviceLoraGate::Eui))
-                    .col(text(SnapDeviceLoraGate::Product))
-                    .col(text(SnapDeviceLoraGate::Config))
                     .to_owned(),
             )
             .await?;
