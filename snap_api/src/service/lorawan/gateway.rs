@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tracing::instrument;
 use uuid::Uuid;
+use crate::load::load_config;
 
 pub(crate) struct LoRaGateService;
 
@@ -93,6 +94,7 @@ impl LoRaGateService {
 
         let mut hasher = sha2::Sha256::new();
         hasher.update(eui_s.as_bytes());
+        hasher.update(load_config().api.mqtt_salt.as_bytes());
         let password = hex::encode(hasher.finalize().as_slice());
         let token = SnapIntegrationMqttActiveModel {
             id: Default::default(),

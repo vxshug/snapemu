@@ -36,6 +36,7 @@ impl Default for AppConfig {
                 email: None,
                 model: None,
                 web_url: "".to_string(),
+                mqtt_salt: "".to_string(),
                 openapi: false,
                 tracing: false,
                 cors: false,
@@ -102,6 +103,8 @@ pub struct ApiConfig {
     pub model: Option<ModelConfig>,
     #[serde(default)]
     pub web_url: String,
+    #[serde(default)]
+    pub mqtt_salt: String,
     #[serde(default)]
     pub openapi: bool,
     #[serde(default)]
