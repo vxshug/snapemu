@@ -207,7 +207,6 @@ pub struct DeviceModify {
     pub app_skey: Option<Key>,
     pub class_c: Option<bool>,
     pub product_id: Option<Id>,
-    pub product: Option<String>,
 }
 
 impl From<DeviceLoraNodeModel> for LoRaNodeDeviceInfo {

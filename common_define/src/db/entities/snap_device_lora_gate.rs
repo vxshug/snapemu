@@ -15,10 +15,6 @@ pub struct Model {
     pub region: LoRaRegion,
     #[sea_orm(column_type = "Text")]
     pub eui: Eui,
-    #[sea_orm(column_type = "Text")]
-    pub product: String,
-    #[sea_orm(column_type = "Text")]
-    pub config: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -1,22 +1,21 @@
 use crate::error::{ApiError, ApiResult};
 use crate::{tt, CurrentUser};
-use sea_orm::{ActiveModelTrait, ActiveValue, QueryFilter};
+use sea_orm::{ActiveModelTrait, ActiveValue, ModelTrait, QueryFilter};
 use sea_orm::{ColumnTrait, IntoActiveModel};
 
 use crate::man::DeviceQueryClient;
 use crate::service::device::define::DeviceParameter;
 use crate::service::device::DeviceService;
 use chrono::{DateTime, Utc};
-use common_define::db::{
-    DeviceLoraGateActiveModel, DeviceLoraGateColumn, DeviceLoraGateEntity, DeviceLoraGateModel, Eui,
-};
+use common_define::db::{DeviceLoraGateActiveModel, DeviceLoraGateColumn, DeviceLoraGateEntity, DeviceLoraGateModel, Eui, SnapIntegrationMqttActiveModel, SnapIntegrationMqttColumn, SnapIntegrationMqttEntity, SnapIntegrationMqttModel};
 use common_define::lora::LoRaRegion;
-use common_define::product::DeviceType;
+use common_define::product::{DeviceType, MqttType};
 use common_define::time::Timestamp;
 use common_define::Id;
 use device_info::lorawan::GatewayInfo;
 use sea_orm::{ConnectionTrait, EntityTrait};
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -55,8 +54,8 @@ impl LoRaGateService {
     ) -> ApiResult<DeviceLoraGateModel> {
         DeviceService::valid_eui(req.eui, conn).await?;
         let eui = req.eui;
-
-        let r = DeviceQueryClient::query_eui(eui.to_string().as_str()).await?;
+        let eui_s = eui.to_string();
+        let r = DeviceQueryClient::query_eui(eui_s.as_str()).await?;
 
         if let Some(g) = r {
             if g.device_type == DeviceType::LoRaGate {
@@ -75,11 +74,9 @@ impl LoRaGateService {
             }
         }
 
-        let id = eui;
-
         let device = DeviceService::register_device(
             user,
-            id,
+            eui,
             req.name.as_str(),
             req.description.as_str(),
             DeviceType::LoRaGate,
@@ -91,11 +88,24 @@ impl LoRaGateService {
             device_id: ActiveValue::Set(device.id),
             region: ActiveValue::Set(req.region),
             eui: ActiveValue::Set(req.eui),
-            product: Default::default(),
-            config: Default::default(),
         };
         let gate = gate.insert(conn).await?;
 
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(eui_s.as_bytes());
+        let password = hex::encode(hasher.finalize().as_slice());
+        let token = SnapIntegrationMqttActiveModel {
+            id: Default::default(),
+            user_id: ActiveValue::Set(user.id),
+            mqtt_type: ActiveValue::Set(MqttType::Gateway),
+            name: ActiveValue::Set(eui_s.clone()),
+            username: ActiveValue::Set(eui_s),
+            password: ActiveValue::Set(password),
+            enable: ActiveValue::Set(true),
+            create_time: ActiveValue::Set(Timestamp::now()),
+        };
+
+        token.insert(conn).await?;
         GatewayInfo::new(device.id, 0, 0, Timestamp::now(), None, None)
             .register(eui, redis)
             .await?;
@@ -122,6 +132,14 @@ impl LoRaGateService {
             }
             Some(gate) => {
                 GatewayInfo::unregister(gate.eui, redis).await?;
+                let username = gate.eui.to_string();
+                let token = SnapIntegrationMqttEntity::find()
+                    .filter(SnapIntegrationMqttColumn::Username.eq(username).and(SnapIntegrationMqttColumn::MqttType.eq(MqttType::Gateway)))
+                    .one(conn)
+                    .await?;
+                if let Some(token) = token {
+                        token.delete(conn).await?;
+                }
                 gate.into_active_model().delete(conn).await?;
             }
         }
