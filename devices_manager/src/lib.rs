@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::thread;
 use crate::decode::JsManager;
 use crate::load::{load_config, store_config, State};
-use crate::man::data::{DataError, DownloadDataCache};
+use crate::man::data::{DataError, DownloadDataCache, DownloadResponse};
 use crate::man::mqtt::MessageProcessor;
 use crate::man::redis_client::{RedisClient, RedisRecv};
 use crate::man::{DecodeManager, DownlinkManager, Id, MQ};
@@ -130,9 +130,8 @@ static GLOBAL_DEPEND: Lazy<DecodeManager> = Lazy::new(|| {
     DecodeManager::new(rt.clone())
 });
 
-static GLOBAL_JS_RUNTIME: Lazy<DownloadDataCache> = Lazy::new(DownloadDataCache::default);
-
 static GLOBAL_DOWNLOAD: Lazy<DownloadDataCache> = Lazy::new(DownloadDataCache::default);
+static GLOBAL_DOWNLOAD_RESPONSE: Lazy<DownloadResponse> = Lazy::new(DownloadResponse::default);
 
 static GLOBAL_STATE: Lazy<State> = Lazy::new(load::load_state);
 

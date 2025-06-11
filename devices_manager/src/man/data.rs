@@ -565,3 +565,31 @@ impl DownloadDataCache {
         }
     }
 }
+
+
+#[derive(Default)]
+pub struct DownloadResponse {
+    data: Mutex<HashMap<Eui, tokio::sync::oneshot::Sender<(Vec<u8>, u8)>>>,
+}
+
+impl DownloadResponse {
+    pub fn has(&self, eui: Eui) -> bool {
+        let d = self.data.lock().unwrap();
+        d.get(&eui).is_some()
+    }
+
+    pub fn get(&self, eui: Eui) -> Option<tokio::sync::oneshot::Sender<(Vec<u8>, u8)>> {
+        let mut d = self.data.lock().unwrap();
+        d.remove(&eui)
+    }
+
+    pub fn add(&self, eui: Eui) -> Option<tokio::sync::oneshot::Receiver<(Vec<u8>, u8)>> {
+        if self.has(eui) {
+            return None
+        }
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let mut d = self.data.lock().unwrap();
+        d.insert(eui, tx);
+        Some(rx)
+    }
+}

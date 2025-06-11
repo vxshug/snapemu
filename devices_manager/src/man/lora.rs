@@ -572,10 +572,9 @@ async fn repetition_task(
         repetition += 1;
         tracing::info!("Class C DownLink: repetition_task timeout 6s at {}", repetition);
         if repetition == 10 {
-            warn!("Class C DownLink Timeout");
-            GLOBAL_DOWNLOAD.commit(device_eui);
             break;
         }
     }
+    GLOBAL_DOWNLOAD.commit(device_eui);
     Ok(())
 }
