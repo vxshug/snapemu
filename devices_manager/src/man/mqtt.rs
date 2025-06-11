@@ -1,30 +1,44 @@
 use std::str::FromStr;
 use std::string::FromUtf8Error;
 use crate::load::{load_config, MqttConfig};
-use crate::{DeviceError, DeviceResult, GLOBAL_STATE};
+use crate::{DeviceError, DeviceResult, GLOBAL_DOWNLOAD_RESPONSE, GLOBAL_STATE};
 use derive_new::new;
 use rumqttc::{Event, Incoming, MqttOptions, QoS};
 use std::sync::Mutex;
 use std::time::Duration;
+use base64::Engine;
 use bytes::Bytes;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
 use common_define::db::{DbErr, DeviceLoraGateColumn, DeviceLoraGateEntity, Eui};
 use common_define::event::DownloadMessage;
 use crate::event::config_cache;
+use crate::man::data::DownloadData;
 use crate::man::gw::{DataWrapper, GwCmd, GwCmdResponse, ShellCmd};
 use crate::man::Id;
 use crate::man::lora::{LoRaNode, LoRaNodeManager};
 use crate::protocol::mqtt::{LinkRx, LinkTx, Notification};
 
 
-#[derive(Debug, Deserialize)]
-pub struct MqttDownloadMessage {
-    #[serde(default)]
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ForwardResult {
     pub port: u8,
     pub payload: String,
+    pub status: i32,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ForwardPayload {
+    pub port: u8,
+    pub payload: String,
+    #[serde(default = "_default_timeout")]
+    pub timeout: u32,
+}
+
+fn _default_timeout() -> u32 {
+    10
 }
 
 const MAX_SEND_SIZE: usize = 900;
@@ -110,7 +124,7 @@ async fn process_mqtt(message: MqttMessage, down: mpsc::Sender<DownloadMessage>)
             return Ok(());
         }
         if topic.starts_with("device") {
-            process_gateway(id, message).await?;
+            process_downlink(id, message, down).await?;
             return Ok(());
         }
     }
@@ -127,12 +141,43 @@ async fn process_downlink(user_id: Id, message: MqttMessage, down: mpsc::Sender<
     if action == "forward" {
         if let Some(node) = LoRaNodeManager::get_node_by_eui(eui).await? {
             if node.info.user_id == Some(user_id) {
-                let data: MqttDownloadMessage = serde_json::from_slice(&message.payload)?;
+                let data: ForwardPayload = serde_json::from_slice(&message.payload)?;
                 down.send(DownloadMessage {
                     eui,
                     port: data.port,
                     data: data.payload,
                 }).await;
+                let rx = GLOBAL_DOWNLOAD_RESPONSE.add(eui);
+                let topic = format!("user/{}/device/{}/forward_result", user_id, eui);
+                if data.timeout > 60 {
+                    return Ok(())
+                }
+                match rx {
+                    Some(rx) => {
+                        let response = tokio::time::timeout(Duration::from_secs(10), rx).await;
+                        match response {
+                            Ok(Ok(response)) => {
+                                let payload = serde_json::to_string(&ForwardResult {
+                                    port: response.1,
+                                    payload: base64::engine::general_purpose::STANDARD.encode(response.0.as_slice()),
+                                    status: 0
+                                })?;
+                                GLOBAL_STATE.mq.publish(crate::integration::mqtt::MqttMessage::new(payload, topic)).await?;
+                            }
+                            _ => {
+                                GLOBAL_DOWNLOAD_RESPONSE.get(eui);
+                            }
+                        }
+                    }
+                    None => {
+                        let payload = serde_json::to_string(&ForwardResult {
+                            port: 0,
+                            payload: "".to_string(),
+                            status: -1
+                        })?;
+                        GLOBAL_STATE.mq.publish(crate::integration::mqtt::MqttMessage::new(payload, topic)).await?;
+                    }
+                }
             }
         }
     }

@@ -94,12 +94,12 @@ impl snap_proto::manager::manager_server::Manager for DeviceManagerServer {
         if let Some(identity) = request.identity {
             let device_id = Id(identity.id);
             let eui = Eui(identity.eui);
-            if let Some(s) = LoRaNodeManager::get_node_by_eui(eui).await.map_err(|_e| Status::internal("get node device error"))? {
+            if let Some(node) = LoRaNodeManager::get_node_by_eui(eui).await.map_err(|_e| Status::internal("get node device error"))? {
                 let data =
                     base64::engine::general_purpose::STANDARD.decode(request.message.as_slice()).map_err(|_e| Status::internal("base64"))?;
                 info!("{}, down message", eui);
                 tokio::spawn(async move {
-                    if let Err(e) = s
+                    if let Err(e) = node
                         .dispatch_task_now(DownloadData::new_data_with_id(
                             data,
                             1,

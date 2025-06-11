@@ -2,7 +2,7 @@ use crate::man::lora::{LoRaGate, LoRaNode, LoRaNodeManager};
 use crate::man::Id;
 use crate::protocol::lora;
 use crate::protocol::lora::payload::LoRaPayload;
-use crate::{decode, DeviceError, DeviceResult, GLOBAL_DEPEND, GLOBAL_STATE, MODEL_MAP};
+use crate::{decode, DeviceError, DeviceResult, GLOBAL_DEPEND, GLOBAL_DOWNLOAD_RESPONSE, GLOBAL_STATE, MODEL_MAP};
 use common_define::db::{
     DeviceDataActiveModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DevicesEntity,
     Eui, LoRaAddr,
@@ -182,6 +182,10 @@ async fn decode_payload(
     let payload = payload.frm_payload().map_err(DeviceError::data)?;
     match payload {
         lorawan::parser::FRMPayload::Data(data) => {
+            if let Some(tx) = GLOBAL_DOWNLOAD_RESPONSE.get(node.info.dev_eui) {
+                tx.send((data.to_vec(), header.f_port().unwrap_or_default()));
+            }
+
             tracing::info!("UpLink: {:02X?}", data);
             node.pull_task(data, push_data, header).await?;
             GLOBAL_STATE.event.lora_node_uplink_data(header, node, push_data, data).await;
