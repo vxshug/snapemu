@@ -63,6 +63,7 @@ message GwConfig {
     optional string trust_mode = 14;
     optional string api_token = 15;
     optional string cert = 16;
+    optional string client_cert = 17;
 }
 
 enum LogType {
