@@ -227,6 +227,7 @@ mod device {
                     .col(big_key_auto(SnapIntegrationMqtt::Id))
                     .col(big_integer(SnapIntegrationMqtt::UserId))
                     .col(text(SnapIntegrationMqtt::MqttType))
+                    .col(text(SnapIntegrationMqtt::Name))
                     .col(text(SnapIntegrationMqtt::Username))
                     .col(text(SnapIntegrationMqtt::Password))
                     .col(boolean(SnapIntegrationMqtt::Enable))
@@ -500,8 +501,9 @@ mod device {
     enum SnapIntegrationMqtt {
         Table,
         Id,
-        MqttType,
         UserId,
+        MqttType,
+        Name,
         Username,
         Password,
         Enable,

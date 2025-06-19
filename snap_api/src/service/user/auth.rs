@@ -133,7 +133,7 @@ pub(crate) async fn auth(
                     }
                 }
             }
-            info!("auth success: {}", user.id);
+            debug!("request user id: {}, username: {}, path: {}", user.id, user.name, req.uri().path_and_query().map(|x| x.as_str()).unwrap_or_default());
             Ok(run_with_user(user.id, user.name, next.run(req)).await)
         }
         Err(e) => Ok(e.into_response()),
