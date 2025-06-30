@@ -435,7 +435,7 @@ impl Router {
         assert_eq!(self.obufs.insert(outgoing), connection_id);
 
         self.connection_map.insert(client_id.clone(), connection_id);
-        info!(connection_id, "Client connection registered");
+        debug!(connection_id, "Client connection registered");
 
         assert_eq!(self.ackslog.insert(ackslog), connection_id);
         assert_eq!(self.scheduler.add(tracker), connection_id);
@@ -731,7 +731,7 @@ impl Router {
                             tracing::info_span!("subscribe", topic = f.path, pkid = subscribe.pkid);
                         let _guard = span.enter();
 
-                        info!("Adding subscription on topic {}", f.path);
+                        debug!("Adding subscription on topic {}", f.path);
                         let connection = self.connections.get_mut(id).unwrap();
 
                         if let Err(e) = validate_subscription(connection, f) {

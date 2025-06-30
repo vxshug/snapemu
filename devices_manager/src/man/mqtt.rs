@@ -1,26 +1,25 @@
-use std::str::FromStr;
-use std::string::FromUtf8Error;
-use crate::load::{load_config, MqttConfig};
-use crate::{DeviceError, DeviceResult, GLOBAL_DOWNLOAD_RESPONSE, GLOBAL_STATE};
-use derive_new::new;
-use rumqttc::{Event, Incoming, MqttOptions, QoS};
-use std::sync::Mutex;
-use std::time::Duration;
-use base64::Engine;
-use bytes::Bytes;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
-use tracing::{debug, error, info, trace, warn};
-use common_define::db::{DbErr, DeviceLoraGateColumn, DeviceLoraGateEntity, Eui};
-use common_define::event::DownloadMessage;
 use crate::event::config_cache;
+use crate::load::{load_config, MqttConfig};
 use crate::man::data::DownloadData;
 use crate::man::gw::{DataWrapper, GwCmd, GwCmdResponse, ShellCmd};
-use crate::man::Id;
 use crate::man::lora::{LoRaNode, LoRaNodeManager};
+use crate::man::Id;
 use crate::protocol::mqtt::{LinkRx, LinkTx, Notification};
-
+use crate::{DeviceError, DeviceResult, GLOBAL_DOWNLOAD_RESPONSE, GLOBAL_STATE};
+use base64::Engine;
+use bytes::Bytes;
+use common_define::db::{DbErr, DeviceLoraGateColumn, DeviceLoraGateEntity, Eui};
+use common_define::event::DownloadMessage;
+use derive_new::new;
+use rumqttc::{Event, Incoming, MqttOptions, QoS};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+use std::string::FromUtf8Error;
+use std::sync::Mutex;
+use std::time::Duration;
+use tokio::sync::mpsc;
+use tracing::{debug, error, info, trace, warn};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ForwardResult {
@@ -74,7 +73,6 @@ pub enum MqttError {
 }
 
 impl MqPublisher {
-
     pub fn new(client: LinkTx) -> MqPublisher {
         MqPublisher { client: Mutex::new(client) }
     }
@@ -88,21 +86,32 @@ impl MqPublisher {
 pub struct MessageProcessor {
     rx: LinkRx,
     sender: mpsc::Sender<MqttMessage>,
-    down: mpsc::Sender<DownloadMessage>
+    down: mpsc::Sender<DownloadMessage>,
 }
 
 impl MessageProcessor {
-    pub fn new_with_sender(rx: LinkRx, sender: mpsc::Sender<MqttMessage>, down: mpsc::Sender<DownloadMessage>) -> Self {
+    pub fn new_with_sender(
+        rx: LinkRx,
+        sender: mpsc::Sender<MqttMessage>,
+        down: mpsc::Sender<DownloadMessage>,
+    ) -> Self {
         Self { sender, rx, down }
     }
-
 
     pub async fn start(mut self) {
         while let Ok(message) = self.rx.next().await {
             if let Some(Notification::Forward(publish)) = message {
+                let down = self.down.clone();
                 match String::from_utf8(publish.publish.topic.to_vec()) {
                     Ok(topic) => {
-                        tokio::spawn(process_mqtt(MqttMessage::new(topic, publish.publish.payload), self.down.clone()));
+                        tokio::spawn(async move {
+                            if let Err(e) =
+                                process_mqtt(MqttMessage::new(topic, publish.publish.payload), down)
+                                    .await
+                            {
+                                warn!("mqtt payload: {}", e)
+                            }
+                        });
                     }
                     Err(_) => {
                         warn!("Snap Mqtt message contained invalid UTF-8");
@@ -113,7 +122,10 @@ impl MessageProcessor {
     }
 }
 
-async fn process_mqtt(message: MqttMessage, down: mpsc::Sender<DownloadMessage>) -> Result<(), MqttError> {
+async fn process_mqtt(
+    message: MqttMessage,
+    down: mpsc::Sender<DownloadMessage>,
+) -> Result<(), MqttError> {
     let mut topic = message.topic.splitn(3, '/');
     topic.next();
     if let Some(user_id) = topic.next() {
@@ -130,8 +142,12 @@ async fn process_mqtt(message: MqttMessage, down: mpsc::Sender<DownloadMessage>)
     }
     Ok(())
 }
-async fn process_downlink(user_id: Id, message: MqttMessage, down: mpsc::Sender<DownloadMessage>) -> Result<(), MqttError> {
-    let mut topic = message.topic.split( '/');
+async fn process_downlink(
+    user_id: Id,
+    message: MqttMessage,
+    down: mpsc::Sender<DownloadMessage>,
+) -> Result<(), MqttError> {
+    let mut topic = message.topic.split('/');
     topic.next();
     topic.next();
     topic.next();
@@ -142,15 +158,11 @@ async fn process_downlink(user_id: Id, message: MqttMessage, down: mpsc::Sender<
         if let Some(node) = LoRaNodeManager::get_node_by_eui(eui).await? {
             if node.info.user_id == Some(user_id) {
                 let data: ForwardPayload = serde_json::from_slice(&message.payload)?;
-                down.send(DownloadMessage {
-                    eui,
-                    port: data.port,
-                    data: data.payload,
-                }).await;
+                down.send(DownloadMessage { eui, port: data.port, data: data.payload }).await;
                 let rx = GLOBAL_DOWNLOAD_RESPONSE.add(eui);
                 let topic = format!("user/{}/device/{}/forward_result", user_id, eui);
                 if data.timeout > 60 {
-                    return Ok(())
+                    return Ok(());
                 }
                 match rx {
                     Some(rx) => {
@@ -159,10 +171,16 @@ async fn process_downlink(user_id: Id, message: MqttMessage, down: mpsc::Sender<
                             Ok(Ok(response)) => {
                                 let payload = serde_json::to_string(&ForwardResult {
                                     port: response.1,
-                                    payload: base64::engine::general_purpose::STANDARD.encode(response.0.as_slice()),
-                                    status: 0
+                                    payload: base64::engine::general_purpose::STANDARD
+                                        .encode(response.0.as_slice()),
+                                    status: 0,
                                 })?;
-                                GLOBAL_STATE.mq.publish(crate::integration::mqtt::MqttMessage::new(payload, topic)).await?;
+                                GLOBAL_STATE
+                                    .mq
+                                    .publish(crate::integration::mqtt::MqttMessage::new(
+                                        payload, topic,
+                                    ))
+                                    .await?;
                             }
                             _ => {
                                 GLOBAL_DOWNLOAD_RESPONSE.get(eui);
@@ -173,9 +191,12 @@ async fn process_downlink(user_id: Id, message: MqttMessage, down: mpsc::Sender<
                         let payload = serde_json::to_string(&ForwardResult {
                             port: 0,
                             payload: "".to_string(),
-                            status: -1
+                            status: -1,
                         })?;
-                        GLOBAL_STATE.mq.publish(crate::integration::mqtt::MqttMessage::new(payload, topic)).await?;
+                        GLOBAL_STATE
+                            .mq
+                            .publish(crate::integration::mqtt::MqttMessage::new(payload, topic))
+                            .await?;
                     }
                 }
             }
@@ -184,16 +205,20 @@ async fn process_downlink(user_id: Id, message: MqttMessage, down: mpsc::Sender<
     Ok(())
 }
 async fn process_gateway(user_id: Id, message: MqttMessage) -> Result<(), MqttError> {
-    let mut topic = message.topic.split( '/');
+    let mut topic = message.topic.split('/');
     topic.next();
     topic.next();
     topic.next();
     let eui_s = topic.next().ok_or(MqttError::EuiNotFound)?;
     let action = topic.next().ok_or(MqttError::ActionNotFound)?;
     if "up" == action {
-        let cmd: GwCmdResponse = serde_json::from_slice(message.payload.as_ref()).map_err(|e| MqttError::SerdeError(e))?;
+        let cmd: GwCmdResponse = serde_json::from_slice(message.payload.as_ref())
+            .map_err(|e| MqttError::SerdeError(e))?;
         let eui = Eui::from_str(eui_s)?;
-        let gate = DeviceLoraGateEntity::find().filter(DeviceLoraGateColumn::Eui.eq(eui)).one(&GLOBAL_STATE.db).await?;
+        let gate = DeviceLoraGateEntity::find()
+            .filter(DeviceLoraGateColumn::Eui.eq(eui))
+            .one(&GLOBAL_STATE.db)
+            .await?;
         if let Some(gate) = gate {
             match cmd {
                 GwCmdResponse::ShellCmd(DataWrapper { id, data }) => {}

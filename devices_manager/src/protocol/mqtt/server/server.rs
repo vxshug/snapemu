@@ -9,6 +9,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time;
 use tokio::time::error::Elapsed;
 use tracing::{error, info, field, Instrument, Span};
+use tracing::log::debug;
 use uuid::Uuid;
 use ws_stream_tungstenite::WsStream;
 use crate::protocol::mqtt::{version, ConnectionId};
@@ -127,7 +128,7 @@ impl Server {
                 };
             }
 
-            info!(
+            debug!(
                 name=?self.config.name, ?addr, count, tenant=?tenant_id, "accept"
             );
 

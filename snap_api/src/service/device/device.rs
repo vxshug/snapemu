@@ -1,4 +1,12 @@
-use common_define::db::{DecodeScriptColumn, DecodeScriptEntity, DeviceAuthorityActiveModel, DeviceAuthorityColumn, DeviceAuthorityEntity, DeviceAuthorityModel, DeviceDataEntity, DeviceDataModel, DeviceFunctionColumn, DeviceFunctionEntity, DeviceFunctionModel, DeviceLoraGateActiveModel, DeviceLoraGateColumn, DeviceLoraGateEntity, DeviceLoraGateModel, DeviceLoraNodeColumn, DeviceLoraNodeEntity, DeviceLoraNodeModel, DevicesActiveModel, DevicesColumn, DevicesEntity, DevicesModel, Eui, Key, LoRaAddr, SnapDeviceColumn, SnapDeviceDataNameColumn, SnapDeviceDataNameEntity, SnapDeviceEntity, SnapDeviceModel};
+use common_define::db::{
+    DecodeScriptColumn, DecodeScriptEntity, DeviceAuthorityActiveModel, DeviceAuthorityColumn,
+    DeviceAuthorityEntity, DeviceAuthorityModel, DeviceDataEntity, DeviceDataModel,
+    DeviceFunctionColumn, DeviceFunctionEntity, DeviceFunctionModel, DeviceLoraGateActiveModel,
+    DeviceLoraGateColumn, DeviceLoraGateEntity, DeviceLoraGateModel, DeviceLoraNodeColumn,
+    DeviceLoraNodeEntity, DeviceLoraNodeModel, DevicesActiveModel, DevicesColumn, DevicesEntity,
+    DevicesModel, Eui, Key, LoRaAddr, SnapDeviceColumn, SnapDeviceDataNameColumn,
+    SnapDeviceDataNameEntity, SnapDeviceEntity, SnapDeviceModel,
+};
 use common_define::decode::LastDecodeData;
 use common_define::lora::{LoRaJoinType, LoRaRegion};
 use common_define::product::{DeviceType, ProductType, ShareType};
@@ -16,20 +24,20 @@ use serde_json::Value;
 use std::collections::HashMap;
 use tracing::{debug, instrument};
 
+use super::DeviceService;
 use crate::cache::DeviceCache;
 use crate::error::ApiError;
 use crate::error::ApiResult;
-use crate::{
-    get_lang, tt, AppState, CurrentUser, DEVICE_DATA_RAW_SQL, MODEL_MAP, SEA_ORMDB_BACKEND,
-};
 use crate::gw_conf::GwConfig;
-use super::DeviceService;
 use crate::service::data::query::{DataDeviceOneResponse, TimeDate};
 use crate::service::data::DataService;
 use crate::service::device::group::{DeviceGroupResp, DeviceGroupService};
 use crate::service::lorawan::{LoRaGateService, LoRaNodeService, ReqLoraGateway, ReqLoraNode};
 use crate::service::mqtt::{MQTTService, ReqMQTT};
 use crate::service::snap::{ReqSnap, SnapDeviceService, SnapJoinParameter};
+use crate::{
+    get_lang, tt, AppState, CurrentUser, DEVICE_DATA_RAW_SQL, MODEL_MAP, SEA_ORMDB_BACKEND,
+};
 
 #[derive(Serialize)]
 pub(crate) struct DeviceIoResp {
@@ -628,31 +636,24 @@ impl DeviceService {
         redis: &mut R,
         conn: &C,
     ) -> ApiResult<DeviceCache> {
-        match DeviceCache::load_by_user_id(user_id, redis).await? {
-            Some(cache) => Ok(cache),
-            None => {
-                let devices = DeviceAuthorityEntity::find()
-                    .filter(
-                        DeviceAuthorityColumn::ShareId
-                            .eq(user_id)
-                            .and(DeviceAuthorityColumn::ShareType.eq(ShareType::User.as_ref())),
-                    )
-                    .find_also_related(DevicesEntity)
-                    .all(conn)
-                    .await?;
-                let devices = devices
-                    .into_iter()
-                    .filter_map(|item| match item.1 {
-                        Some(device) => Some(DeviceWithAuth { device, auth: item.0 }),
-                        None => None,
-                    })
-                    .collect::<Vec<_>>();
-                let device_cache = DeviceCache::new(devices);
-                debug!("update device cache");
-                device_cache.save_by_user_id(user_id, redis).await?;
-                Ok(device_cache)
-            }
-        }
+        let devices = DeviceAuthorityEntity::find()
+            .filter(
+                DeviceAuthorityColumn::ShareId
+                    .eq(user_id)
+                    .and(DeviceAuthorityColumn::ShareType.eq(ShareType::User.as_ref())),
+            )
+            .find_also_related(DevicesEntity)
+            .all(conn)
+            .await?;
+        let devices = devices
+            .into_iter()
+            .filter_map(|item| match item.1 {
+                Some(device) => Some(DeviceWithAuth { device, auth: item.0 }),
+                None => None,
+            })
+            .collect::<Vec<_>>();
+        let device_cache = DeviceCache::new(devices);
+        Ok(device_cache)
     }
     pub(crate) async fn query_all_with_ids<C: ConnectionTrait>(
         user_id: Id,
@@ -922,7 +923,6 @@ impl DeviceService {
             let mut gate = gate.into_active_model();
             if let Some(region) = info.region {
                 gate.region = ActiveValue::Set(region);
-
             }
             gate.update(conn).await?;
         }

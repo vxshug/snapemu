@@ -17,6 +17,7 @@ fn main() {
         .field_attribute("manager.GwConfig.trust_mode", r#"#[serde(skip_serializing_if = "Option::is_none")]"#)
         .field_attribute("manager.GwConfig.api_token", r#"#[serde(skip_serializing_if = "Option::is_none")]"#)
         .field_attribute("manager.GwConfig.cert", r#"#[serde(skip_serializing_if = "Option::is_none")]"#)
+        .field_attribute("manager.GwConfig.client_cert", r#"#[serde(skip_serializing_if = "Option::is_none")]"#)
         .compile_protos(&["proto/manager.proto"], &["proto"])
         .unwrap();
 }
