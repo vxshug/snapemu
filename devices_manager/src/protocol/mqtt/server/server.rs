@@ -1,24 +1,28 @@
-use std::io;
-use std::sync::Arc;
-use std::time::Duration;
+use crate::protocol::mqtt::server::broker::{ConnectionSettings, ListenConfig, MqttVersion, IO};
+use crate::protocol::mqtt::server::link::Link;
+use crate::protocol::mqtt::server::network::Network;
+use crate::protocol::mqtt::server::tls::TLSAcceptor;
+use crate::protocol::mqtt::server::{
+    link, network, tls, AuthHandler, Event, MqttAuth, MqttAuthRequest,
+};
+use crate::protocol::mqtt::version::{
+    ConnAck, ConnectReturnCode, Login, Packet, Protocol, V3, V4, V5,
+};
+use crate::protocol::mqtt::{version, ConnectionId};
 use async_tungstenite::tungstenite;
 use async_tungstenite::tungstenite::http::HeaderValue;
 use bytes::BytesMut;
 use flume::{RecvError, SendError, Sender};
+use std::io;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time;
 use tokio::time::error::Elapsed;
-use tracing::{error, info, field, Instrument, Span};
 use tracing::log::debug;
+use tracing::{error, field, info, Instrument, Span};
 use uuid::Uuid;
 use ws_stream_tungstenite::WsStream;
-use crate::protocol::mqtt::{version, ConnectionId};
-use crate::protocol::mqtt::server::broker::{ConnectionSettings, ListenConfig, MqttVersion, IO};
-use crate::protocol::mqtt::server::{link, network, tls, AuthHandler, Event, MqttAuth, MqttAuthRequest};
-use crate::protocol::mqtt::server::link::Link;
-use crate::protocol::mqtt::server::network::Network;
-use crate::protocol::mqtt::server::tls::TLSAcceptor;
-use crate::protocol::mqtt::version::{ConnAck, ConnectReturnCode, Login, Packet, Protocol, V3, V4, V5};
 
 struct WSCallback;
 impl tungstenite::handshake::server::Callback for WSCallback {
@@ -26,10 +30,11 @@ impl tungstenite::handshake::server::Callback for WSCallback {
         self,
         _request: &tungstenite::handshake::server::Request,
         mut response: tungstenite::handshake::server::Response,
-    ) -> Result<tungstenite::handshake::server::Response, tungstenite::handshake::server::ErrorResponse> {
-        response
-            .headers_mut()
-            .insert("sec-websocket-protocol", HeaderValue::from_static("mqtt"));
+    ) -> Result<
+        tungstenite::handshake::server::Response,
+        tungstenite::handshake::server::ErrorResponse,
+    > {
+        response.headers_mut().insert("sec-websocket-protocol", HeaderValue::from_static("mqtt"));
         Ok(response)
     }
 }
@@ -59,7 +64,7 @@ pub struct Server {
     auth_handler: AuthHandler,
     config: ListenConfig,
     router_tx: Sender<(ConnectionId, Event)>,
-    acceptor: Option<TLSAcceptor>
+    acceptor: Option<TLSAcceptor>,
 }
 
 impl Server {
@@ -69,12 +74,7 @@ impl Server {
         auth_handler: AuthHandler,
     ) -> Result<Self, Error> {
         let acceptor = config.tls.as_ref().map(|tls| TLSAcceptor::new(tls)).transpose()?;
-        Ok(Server {
-            config,
-            router_tx,
-            acceptor,
-            auth_handler,
-        })
+        Ok(Server { config, router_tx, acceptor, auth_handler })
     }
 
     async fn tls_accept(&self, stream: TcpStream) -> Result<(Box<dyn IO>, Option<String>), Error> {
@@ -90,16 +90,12 @@ impl Server {
     pub(crate) async fn start(&self) -> Result<(), Error> {
         let listener = {
             let bind = format!("{}:{}", self.config.host, self.config.port);
-            info!(
-            listen_addr = bind,
-            "Listening started",
-        );
+            info!(listen_addr = bind, "Listening started",);
             TcpListener::bind(bind).await?
         };
         let delay = Duration::from_millis(self.config.next_connection_delay_ms);
         let mut count: usize = 0;
         let config = Arc::new(self.config.connections.clone());
-
 
         loop {
             let (stream, addr) = match listener.accept().await {
@@ -119,7 +115,8 @@ impl Server {
             };
 
             if self.config.ws {
-                 stream = match async_tungstenite::tokio::accept_hdr_async(stream, WSCallback).await {
+                stream = match async_tungstenite::tokio::accept_hdr_async(stream, WSCallback).await
+                {
                     Ok(s) => Box::new(WsStream::new(s)),
                     Err(e) => {
                         error!(error=?e, "Websocket failed handshake");
@@ -128,27 +125,17 @@ impl Server {
                 };
             }
 
-            debug!(
-                name=?self.config.name, ?addr, count, tenant=?tenant_id, "accept"
-            );
-
             let router_tx = self.router_tx.clone();
             let config = config.clone();
             count += 1;
 
             tokio::task::spawn(
-                remote(
-                    config,
-                    tenant_id.clone(),
-                    router_tx,
-                    stream,
-                    self.auth_handler.clone(),
-                )
+                remote(config, tenant_id.clone(), router_tx, stream, self.auth_handler.clone())
                     .instrument(tracing::info_span!(
-                            "link",
-                            client_id = field::Empty,
-                            connection_id = field::Empty
-                        )),
+                        "link",
+                        client_id = field::Empty,
+                        connection_id = field::Empty
+                    )),
             );
 
             time::sleep(delay).await;
@@ -160,15 +147,13 @@ pub async fn mqtt_connect<P: Protocol>(
     config: Arc<ConnectionSettings>,
     network: &mut Network<P>,
     auth_handler: AuthHandler,
-) -> Result<Packet, link::Error>
-{
-
+) -> Result<Packet, link::Error> {
     let connection_timeout_ms = config.connection_timeout_ms.into();
     let packet = time::timeout(Duration::from_millis(connection_timeout_ms), async {
         let packet = network.read().await?;
         Ok::<_, network::Error>(packet)
     })
-        .await??;
+    .await??;
 
     let (connect, _props, login) = match packet {
         Packet::Connect(ref connect, ref props, _, _, ref login) => (connect, props, login),
@@ -177,7 +162,8 @@ pub async fn mqtt_connect<P: Protocol>(
 
     Span::current().record("client_id", &connect.client_id);
 
-    let mqtt_auth = handle_auth(login.as_ref(), connect.client_id.clone(), None, auth_handler).await?;
+    let mqtt_auth =
+        handle_auth(login.as_ref(), connect.client_id.clone(), None, auth_handler).await?;
     network.set_mqtt_auth(mqtt_auth);
     if connect.keep_alive == 0 {
         return Err(link::Error::ZeroKeepAlive);
@@ -187,10 +173,8 @@ pub async fn mqtt_connect<P: Protocol>(
     let clean_session = connect.clean_session;
 
     if empty_client_id && !clean_session {
-        let ack = ConnAck {
-            session_present: false,
-            code: ConnectReturnCode::ClientIdentifierNotValid,
-        };
+        let ack =
+            ConnAck { session_present: false, code: ConnectReturnCode::ClientIdentifierNotValid };
 
         let packet = Packet::ConnAck(ack, None);
         network.write(packet).await?;
@@ -207,7 +191,6 @@ async fn handle_auth(
     common_name: Option<String>,
     auth_handler: AuthHandler,
 ) -> Result<MqttAuth, link::Error> {
-
     let Some(login) = login else {
         return Err(link::Error::InvalidAuth);
     };
@@ -215,10 +198,8 @@ async fn handle_auth(
     let username = login.username.clone();
     let password = login.password.clone();
 
-    let mqtt_auth = auth_handler(
-        MqttAuthRequest::new(common_name, username, password, client_id)
-    )
-        .await?;
+    let mqtt_auth =
+        auth_handler(MqttAuthRequest::new(common_name, username, password, client_id)).await?;
 
     Ok(mqtt_auth)
 }
@@ -235,7 +216,7 @@ async fn remote(
         config.max_payload_size,
         config.max_inflight_count,
         V4,
-        MqttAuth::default()
+        MqttAuth::default(),
     );
     let version = match network.try_connect().await {
         Ok(v) => v,
@@ -268,7 +249,6 @@ async fn link_remote<P: Protocol>(
     mut network: Network<P>,
     auth_handler: AuthHandler,
 ) {
-
     let dynamic_filters = config.dynamic_filters;
     let (mut connect_packet) = match mqtt_connect(config, &mut network, auth_handler).await {
         Ok(p) => p,
@@ -280,7 +260,7 @@ async fn link_remote<P: Protocol>(
 
     let (mut client_id, clean_session) = match &mut connect_packet {
         Packet::Connect(ref mut connect, _, _, _, _) => {
-            connect.client_id = format!("{}.{}", network.mqtt_auth.id.0, connect.client_id );
+            connect.client_id = format!("{}.{}", network.mqtt_auth.id.0, connect.client_id);
             (connect.client_id.clone(), connect.clean_session)
         }
         _ => return,
@@ -302,7 +282,7 @@ async fn link_remote<P: Protocol>(
         dynamic_filters,
         assigned_client_id,
     )
-        .await
+    .await
     {
         Ok(l) => l,
         Err(e) => {
@@ -325,10 +305,10 @@ async fn link_remote<P: Protocol>(
         }
         // Connection was closed by peer
         Err(link::Error::Network(network::Error::Io(err)) | link::Error::Io(err))
-        if err.kind() == io::ErrorKind::ConnectionAborted =>
-            {
-                info!(error=?err, "disconnected");
-            }
+            if err.kind() == io::ErrorKind::ConnectionAborted =>
+        {
+            info!(error=?err, "disconnected");
+        }
         // Any other error
         Err(e) => {
             error!(error=?e, "disconnected");
@@ -341,3 +321,4 @@ async fn link_remote<P: Protocol>(
         router_tx.send(message).ok();
     }
 }
+
