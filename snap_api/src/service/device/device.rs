@@ -205,6 +205,7 @@ pub(crate) struct LoRaNodeDeviceInfo {
 pub struct DeviceModify {
     pub name: Option<String>,
     pub description: Option<String>,
+    pub period: Option<i32>,
     pub script: Option<Id>,
     pub reset_script: Option<bool>,
     pub region: Option<LoRaRegion>,
@@ -889,6 +890,11 @@ impl DeviceService {
         if let Some(product_id) = info.product_id {
             if Some(product_id) != device_with_auth.device.product_id {
                 device_active.product_id = ActiveValue::Set(Some(product_id));
+            }
+        }
+        if let Some(period) = info.period {
+            if period != device_with_auth.device.period {
+                device_active.period = ActiveValue::Set(period);
             }
         }
         if let Some(script_id) = info.script {

@@ -17,8 +17,8 @@ async-trait.workspace = true
 arc-swap.workspace = true
 x509-parser.workspace = true
 rustls-pemfile.workspace = true
-async-tungstenite = { workspace = true, default-features = false, features = ["tokio-runtime"] }
-ws_stream_tungstenite = { workspace = true, default-features = false, features = ["tokio_io"] }
+async-tungstenite = { workspace = true,  features = ["tokio-runtime"] }
+ws_stream_tungstenite = { workspace = true, features = ["tokio_io"] }
 parking_lot.workspace = true
 flume.workspace = true
 slab.workspace = true
