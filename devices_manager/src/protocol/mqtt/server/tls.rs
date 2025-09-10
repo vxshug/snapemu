@@ -4,11 +4,9 @@ use tokio::net::TcpStream;
 
 use serde::{Deserialize, Serialize};
 
-use {
-    std::io::Read, tokio_native_tls::native_tls,
-    tokio_native_tls::native_tls::Error as NativeTlsError,
-};
+use std::io::Read;
 
+use crate::protocol::mqtt::server::broker::IO;
 use tokio_rustls::rustls::{server::WebPkiClientVerifier, RootCertStore};
 use {
     rustls_pemfile::Item,
@@ -16,20 +14,11 @@ use {
     tokio_rustls::rustls::{pki_types::PrivateKeyDer, Error as RustlsError, ServerConfig},
     tracing::error,
 };
-use crate::protocol::mqtt::server::broker::IO;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum TlsConfig {
-    Rustls {
-        capath: Option<String>,
-        certpath: String,
-        keypath: String,
-    },
-    NativeTls {
-        pkcs12path: String,
-        pkcs12pass: String,
-    },
+    Rustls { capath: Option<String>, certpath: String, keypath: String },
 }
 
 impl TlsConfig {
@@ -37,16 +26,11 @@ impl TlsConfig {
     // NOTE: This doesn't verify if certificate files are in required format or not.
     pub fn validate_paths(&self) -> bool {
         match self {
-            TlsConfig::Rustls {
-                capath,
-                certpath,
-                keypath,
-            } => {
+            TlsConfig::Rustls { capath, certpath, keypath } => {
                 let ca = capath.is_none() || capath.as_ref().is_some_and(|v| Path::new(v).exists());
 
                 ca && [certpath, keypath].iter().all(|v| Path::new(v).exists())
             }
-            TlsConfig::NativeTls { pkcs12path, .. } => Path::new(pkcs12path).exists(),
         }
     }
 }
@@ -56,8 +40,6 @@ impl TlsConfig {
 pub enum Error {
     #[error("I/O {0}")]
     Io(#[from] std::io::Error),
-    #[error("Native TLS error {0}")]
-    NativeTls(#[from] NativeTlsError),
     #[error("No peer certificate")]
     NoPeerCertificate,
     #[error("Rustls error {0}")]
@@ -74,9 +56,6 @@ pub enum Error {
     ServerKeyNotFound(String),
     #[error("CA file {0} no found")]
     CaFileNotFound(String),
-    #[cfg(not(feature = "use-native-tls"))]
-    NativeTlsNotEnabled,
-    #[cfg(not(feature = "use-rustls"))]
     RustlsNotEnabled,
     #[error("Invalid tenant id = {0}")]
     InvalidTenantId(String),
@@ -111,26 +90,15 @@ fn extract_common_name(der: &[u8]) -> Result<Option<String>, Error> {
 
 #[allow(dead_code)]
 pub enum TLSAcceptor {
-    Rustls {
-        acceptor: tokio_rustls::TlsAcceptor,
-    },
-    NativeTLS {
-        acceptor: tokio_native_tls::TlsAcceptor,
-    },
+    Rustls { acceptor: tokio_rustls::TlsAcceptor },
 }
 
 impl TLSAcceptor {
     pub fn new(config: &TlsConfig) -> Result<Self, Error> {
         match config {
-            TlsConfig::Rustls {
-                capath,
-                certpath,
-                keypath,
-            } => Self::rustls(capath, certpath, keypath),
-            TlsConfig::NativeTls {
-                pkcs12path,
-                pkcs12pass,
-            } => Self::native_tls(pkcs12path, pkcs12pass),
+            TlsConfig::Rustls { capath, certpath, keypath } => {
+                Self::rustls(capath, certpath, keypath)
+            }
         }
     }
 
@@ -143,47 +111,14 @@ impl TLSAcceptor {
                     let (_, session) = stream.get_ref();
                     session
                         .peer_certificates()
-                        .map(|cert| extract_common_name(&cert[0])).transpose()?.flatten()
+                        .map(|cert| extract_common_name(&cert[0]))
+                        .transpose()?
+                        .flatten()
                 };
                 let network = Box::new(stream);
                 Ok((tenant_id, network))
             }
-            TLSAcceptor::NativeTLS { acceptor } => {
-                let stream = acceptor.accept(stream).await?;
-                let session = stream.get_ref();
-                let peer_certificate = session
-                    .peer_certificate()?
-                    .ok_or(Error::NoPeerCertificate)?
-                    .to_der()?;
-                let tenant_id = extract_common_name(&peer_certificate)?;
-                let network = Box::new(stream);
-                Ok((None, network))
-            }
         }
-    }
-
-    fn native_tls(pkcs12_path: &String, pkcs12_pass: &str) -> Result<Self, Error> {
-        // Get certificates
-        let cert_file = File::open(pkcs12_path);
-        let mut cert_file =
-            cert_file.map_err(|_| Error::ServerCertNotFound(pkcs12_path.clone()))?;
-
-        // Read cert into memory
-        let mut buf = Vec::new();
-        cert_file
-            .read_to_end(&mut buf)
-            .map_err(|_| Error::InvalidServerCert(pkcs12_path.clone()))?;
-
-        // Get the identity
-        let identity = native_tls::Identity::from_pkcs12(&buf, pkcs12_pass)
-            .map_err(|_| Error::InvalidServerCert(pkcs12_path.clone()))?;
-
-        // Builder
-        let builder = native_tls::TlsAcceptor::builder(identity).build()?;
-
-        // Create acceptor
-        let acceptor = tokio_native_tls::TlsAcceptor::from(builder);
-        Ok(TLSAcceptor::NativeTLS { acceptor })
     }
 
     fn rustls(
@@ -191,14 +126,12 @@ impl TLSAcceptor {
         cert_path: &String,
         key_path: &String,
     ) -> Result<TLSAcceptor, Error> {
-        let Some(ca_path) = ca_path
-        else {
+        let Some(ca_path) = ca_path else {
             return Err(Error::CaFileNotFound(
                 "capath must be specified in config when verify-client-cert is enabled."
                     .to_string(),
             ));
         };
-
 
         let (certs, key) = {
             // Get certificates
@@ -226,19 +159,14 @@ impl TLSAcceptor {
                 .ok_or_else(|| Error::InvalidCACert(ca_path.to_string()))??;
 
             let mut store = RootCertStore::empty();
-            store
-                .add(ca_cert)
-                .map_err(|_| Error::InvalidCACert(ca_path.to_string()))?;
+            store.add(ca_cert).map_err(|_| Error::InvalidCACert(ca_path.to_string()))?;
 
             // This will only return an error if no trust anchors are provided or invalid CRLs are
             // provided. We always provide a trust anchor, and don't provide any CRLs, so it is safe
             // to unwrap.
-            let verifier = WebPkiClientVerifier::builder(Arc::new(store))
-                .build()
-                .unwrap();
+            let verifier = WebPkiClientVerifier::builder(Arc::new(store)).build().unwrap();
             builder.with_no_client_auth()
         };
-
 
         let server_config = builder.with_single_cert(certs, key)?;
 

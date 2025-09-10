@@ -919,6 +919,13 @@ impl DeviceService {
             device_active.script = ActiveValue::Set(None);
             NodeInfo::reset_by_eui(device_with_auth.device.eui, NodeInfo::script(), redis).await?;
         }
+        if let Some(name) = info.name {
+            device_active.name = ActiveValue::Set(name);
+        }
+        if let Some(description) = info.description {
+            device_active.description = ActiveValue::Set(description);
+        }
+
         if device_with_auth.device.device_type == DeviceType::LoRaGate {
             let gate = device_with_auth
                 .device
@@ -943,12 +950,6 @@ impl DeviceService {
 
             let mut node = node.into_active_model();
 
-            if let Some(name) = info.name {
-                device_active.name = ActiveValue::Set(name);
-            }
-            if let Some(description) = info.description {
-                device_active.description = ActiveValue::Set(description);
-            }
             if let Some(region) = info.region {
                 node.region = ActiveValue::Set(region);
                 NodeInfo::update_by_eui(eui, NodeInfo::region(), region, redis).await?;
