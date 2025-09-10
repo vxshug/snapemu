@@ -24,7 +24,6 @@ utils = { path = "./utils" }
 common_define = { path = "./common_define" }
 migration = { path = "./migration" }
 hash_name = { path = "./hash_name" }
-openssl = { version = "0.10", features = ["vendored"] }
 accept-language = "3.1.0"
 aes = "0.8.4"
 arc-swap = "1.7.1"
@@ -58,9 +57,9 @@ jwt = "0.16.0"
 hex = "0.4"
 hmac-sha1 = "0.2"
 language-tags = "0.3.2"
-lettre = "0.11"
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "tokio1-rustls-tls","hostname", "pool", "builder"] }
 lorawan = "0.7.3"
-influxdb2 = "0.5.2"
+influxdb2 = { version = "0.5.2", default-features = false, features = [ "rustls" ] }
 influxdb2-structmap = "0.2"
 influxdb2-derive = "0.1.1"
 num-traits = "0.2"
@@ -76,13 +75,12 @@ rand = "0.8"
 redis = "0.26.1"
 redis-derive = "0.1"
 redis-macros = "0.4.0"
-reqwest = "0.11"
+reqwest = { version = "0.11", default-features = false, features = [ "rustls-tls-native-roots"] }
 rsa = "0.9"
 rust-i18n = "3.0.1"
 rust-embed = "8"
 itertools = "0.13.0"
 x509-parser = "0.17.0"
-tokio-native-tls = "0.3.1"
 tokio-rustls = "0.26.1"
 rustls-pemfile = "2.1.1"
 async-tungstenite = "0.25.1"

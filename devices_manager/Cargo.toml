@@ -17,7 +17,7 @@ async-trait.workspace = true
 arc-swap.workspace = true
 x509-parser.workspace = true
 rustls-pemfile.workspace = true
-async-tungstenite = { workspace = true,  features = ["tokio-runtime"] }
+async-tungstenite = { workspace = true, features = ["tokio-rustls-native-certs"] }
 ws_stream_tungstenite = { workspace = true, features = ["tokio_io"] }
 parking_lot.workspace = true
 flume.workspace = true
@@ -28,12 +28,10 @@ strum = { workspace = true, features = ["derive"] }
 lorawan.workspace = true
 tokio =  { workspace = true, features = ["full"]}
 tokio-stream = { workspace = true, features = ["sync"]}
-tokio-native-tls.workspace = true
 tokio-rustls.workspace = true
 tokio-util = { workspace = true, features = ["codec", "compat"] }
-openssl = { workspace = true, features = ["vendored"] }
 redis = { workspace = true, features = ["tokio-comp"] }
-sea-orm = { workspace = true, features = [ "sqlx-postgres", "runtime-tokio-native-tls", "macros", "debug-print" ] }
+sea-orm = { workspace = true, features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros", "debug-print" ] }
 deadpool-redis.workspace = true
 deadpool.workspace = true
 redis-macros.workspace = true

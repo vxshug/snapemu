@@ -17,7 +17,7 @@ utils.workspace = true
 image.workspace = true
 arc-swap.workspace = true
 clap = { workspace = true, features = [ "derive", "env" ] }
-sea-orm = { workspace = true, features = [ "sqlx-postgres", "runtime-tokio-native-tls", "macros", "debug-print" ] }
+sea-orm = { workspace = true, features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros", "debug-print" ] }
 jwt.workspace = true
 tokio = { workspace = true, features = ["full"]}
 tokio-stream = { workspace = true, features = ["sync"]}
@@ -28,8 +28,7 @@ axum-extra= { workspace = true, features = ["typed-header"] }
 utoipa-axum = { workspace = true }
 tower-http = { workspace = true, features = ["cors", "fs", "limit", "trace"] }
 accept-language.workspace = true
-openssl = { workspace = true, features = ["vendored"] }
-reqwest = { workspace = true, features = [ "multipart", "json"]  }
+reqwest = { workspace = true, default-features = false, features = [ "multipart", "json"]  }
 rust-embed = { workspace = true, features = [ "include-exclude"] }
 redis = { workspace = true, features = ["tokio-comp"] }
 deadpool-redis.workspace = true
@@ -37,7 +36,7 @@ deadpool.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 itertools.workspace = true
-lettre = { workspace = true, features = ["smtp-transport", "tokio1", "tokio1-native-tls", "builder"] }
+lettre = { workspace = true, default-features = false, features = ["smtp-transport", "tokio1-rustls-tls","hostname", "pool", "builder"] }
 uuid.workspace = true
 migration.workspace = true
 once_cell.workspace = true
