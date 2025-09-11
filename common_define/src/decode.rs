@@ -95,7 +95,6 @@ pub enum Value {
     Bool(bool),
 }
 
-
 impl From<Value> for FieldValue {
     fn from(value: Value) -> Self {
         match value {
