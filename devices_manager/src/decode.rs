@@ -1,30 +1,29 @@
 use crate::man::data::{DataError, ValueType};
 use common_define::db::DbDecodeData;
 use derive_new::new;
-use rquickjs::{CatchResultExt, Function};
+use rquickjs::Function;
+use snap_model::ModelSource;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use snap_model::ModelSource;
 
 fn check_data_length(bytes: &[u8]) -> Result<(), DataError> {
     let mut check_len = 0;
-    let mut prefix = 0;
     let len = bytes.len();
     loop {
         let sensor_len =
-            *bytes.get(check_len + 2).ok_or(format!("data length error: {:?}", bytes))?;
+            *bytes.get(check_len + 2).ok_or(format!("data length error: {bytes:?}"))?;
         check_len += sensor_len as usize + 3;
         if check_len == len {
             break;
         }
     }
     check_len = 0;
-    prefix = 0;
+    let mut prefix = 0;
     loop {
         check_len += 2;
         prefix += 2;
-        let sensor_len = *bytes.get(check_len).ok_or(format!("data length error: {:?}", bytes))?;
+        let sensor_len = *bytes.get(check_len).ok_or(format!("data length error: {bytes:?}"))?;
         check_len += sensor_len as usize + 1;
         prefix += 1;
 
@@ -33,41 +32,21 @@ fn check_data_length(bytes: &[u8]) -> Result<(), DataError> {
         } else {
             let mut s = 0;
             loop {
-                let mut type_len = 0;
                 let pk_type = *bytes.get(prefix).ok_or(DataError::from("length error"))? & 0x0F;
                 let pk_type: ValueType = pk_type.try_into()?;
-                match pk_type {
+                let type_len = match pk_type {
                     ValueType::Array => {
-                        type_len =
-                            *bytes.get(prefix + 1).ok_or(DataError::from("length error"))? + 1;
+                        *bytes.get(prefix + 1).ok_or(DataError::from("length error"))? + 1
                     }
-                    ValueType::F64 => {
-                        type_len = 8;
-                    }
-                    ValueType::F32 => {
-                        type_len = 4;
-                    }
-                    ValueType::Bool => {
-                        type_len = 1;
-                    }
-                    ValueType::I8 => {
-                        type_len = 1;
-                    }
-                    ValueType::U8 => {
-                        type_len = 1;
-                    }
-                    ValueType::I16 => {
-                        type_len = 2;
-                    }
-                    ValueType::U16 => {
-                        type_len = 2;
-                    }
-                    ValueType::I32 => {
-                        type_len = 4;
-                    }
-                    ValueType::U32 => {
-                        type_len = 4;
-                    }
+                    ValueType::F64 => 8,
+                    ValueType::F32 => 4,
+                    ValueType::Bool => 1,
+                    ValueType::I8 => 1,
+                    ValueType::U8 => 1,
+                    ValueType::I16 => 2,
+                    ValueType::U16 => 2,
+                    ValueType::I32 => 4,
+                    ValueType::U32 => 4,
                 };
                 s += type_len + 1;
                 prefix += type_len as usize + 1;
@@ -181,15 +160,12 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
             let data = match pk_type {
                 ValueType::Array => {
                     if parse_data_len > data_len {
-                        return Err(DataError::from(format!(
-                            "not found array length: {:?}",
-                            bytes
-                        )));
+                        return Err(DataError::from(format!("not found array length: {bytes:?}",)));
                     }
                     let arr_len = bytes[parse_data_len] as usize;
                     parse_data_len += 1;
                     if parse_data_len + arr_len > data_len {
-                        return Err(DataError::from(format!("data length error: {:?}", bytes)));
+                        return Err(DataError::from(format!("data length error: {bytes:?}",)));
                     }
                     let mut v = Vec::with_capacity(arr_len);
                     for item in &bytes[parse_data_len..parse_data_len + arr_len] {
@@ -201,7 +177,7 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
                 ValueType::F64 => {
                     let mut u = [0; 8];
                     if parse_data_len + 8 > data_len {
-                        return Err(DataError::from(format!("not found f64 length: {:?}", bytes)));
+                        return Err(DataError::from(format!("not found f64 length: {bytes:?}")));
                     }
                     u.copy_from_slice(&bytes[parse_data_len..parse_data_len + 8]);
                     parse_data_len += 8;
@@ -210,7 +186,7 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
                 ValueType::F32 => {
                     let mut u = [0; 4];
                     if parse_data_len + 4 > data_len {
-                        return Err(DataError::from(format!("not found f32 length: {:?}", bytes)));
+                        return Err(DataError::from(format!("not found f32 length: {bytes:?}",)));
                     }
                     u.copy_from_slice(&bytes[parse_data_len..parse_data_len + 4]);
                     parse_data_len += 4;
@@ -218,7 +194,7 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
                 }
                 ValueType::Bool => {
                     if parse_data_len + 1 > data_len {
-                        return Err(DataError::from(format!("not found bool length: {:?}", bytes)));
+                        return Err(DataError::from(format!("not found bool length: {bytes:?}",)));
                     }
                     let u = bytes[parse_data_len];
                     parse_data_len += 1;
@@ -226,7 +202,7 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
                 }
                 ValueType::I8 => {
                     if parse_data_len + 1 > data_len {
-                        return Err(DataError::from(format!("not found i8 length: {:?}", bytes)));
+                        return Err(DataError::from(format!("not found i8 length: {bytes:?}",)));
                     }
                     let u = bytes[parse_data_len];
                     parse_data_len += 1;
@@ -234,7 +210,7 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
                 }
                 ValueType::U8 => {
                     if parse_data_len + 1 > data_len {
-                        return Err(DataError::from(format!("not found u8 length: {:?}", bytes)));
+                        return Err(DataError::from(format!("not found u8 length: {bytes:?}",)));
                     }
                     let u = bytes[parse_data_len];
                     parse_data_len += 1;
@@ -243,7 +219,7 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
                 ValueType::I16 => {
                     let mut u = [0; 2];
                     if parse_data_len + 2 > data_len {
-                        return Err(DataError::from(format!("not found i16 length: {:?}", bytes)));
+                        return Err(DataError::from(format!("not found i16 length: {bytes:?}")));
                     }
                     u.copy_from_slice(&bytes[parse_data_len..parse_data_len + 2]);
                     parse_data_len += 2;
@@ -252,7 +228,7 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
                 ValueType::U16 => {
                     let mut u = [0; 2];
                     if parse_data_len + 2 > data_len {
-                        return Err(DataError::from(format!("not found u16 length: {:?}", bytes)));
+                        return Err(DataError::from(format!("not found u16 length: {bytes:?}",)));
                     }
                     u.copy_from_slice(&bytes[parse_data_len..parse_data_len + 2]);
                     parse_data_len += 2;
@@ -261,7 +237,7 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
                 ValueType::I32 => {
                     let mut u = [0; 4];
                     if parse_data_len + 4 > data_len {
-                        return Err(DataError::from(format!("not found i32 length: {:?}", bytes)));
+                        return Err(DataError::from(format!("not found i32 length: {bytes:?}",)));
                     }
                     u.copy_from_slice(&bytes[parse_data_len..parse_data_len + 4]);
                     parse_data_len += 4;
@@ -270,7 +246,7 @@ pub(crate) fn up_data_decode(bytes: &[u8]) -> Result<DecodeDataDecoded, DataErro
                 ValueType::U32 => {
                     let mut u = [0; 4];
                     if parse_data_len + 4 > data_len {
-                        return Err(DataError::from(format!("not found u32 length: {:?}", bytes)));
+                        return Err(DataError::from(format!("not found u32 length: {bytes:?}",)));
                     }
                     u.copy_from_slice(&bytes[parse_data_len..parse_data_len + 4]);
                     parse_data_len += 4;
@@ -303,7 +279,10 @@ pub struct DecodeData {
 }
 
 impl DecodeData {
-    pub fn new<S: ModelSource>(decode_data: Vec<common_define::decode::DecodeData>, map: S) -> Self {
+    pub fn new<S: ModelSource>(
+        decode_data: Vec<common_define::decode::DecodeData>,
+        map: S,
+    ) -> Self {
         let mut data = Vec::new();
         for item in decode_data {
             let data_map = map.get_data_name(item.i);
@@ -311,12 +290,10 @@ impl DecodeData {
                 v: item.v,
                 i: item.i as _,
                 name: data_map.name.format_tag(),
-                unit: data_map.unit.to_string()
+                unit: data_map.unit.to_string(),
             });
         }
-        Self {
-            data
-        }
+        Self { data }
     }
 }
 
@@ -359,7 +336,7 @@ impl<'js> rquickjs::FromJs<'js> for DecodeDataItem {
         let data = js_to_serde_value(&data).ok_or(rquickjs::Error::FromJs {
             from: "data",
             to: "number or bool",
-            message: Some(format!("data: {:?}, not a number or bool", data)),
+            message: Some(format!("data: {data:?}, not a number or bool")),
         })?;
         let id: i32 = obj.get("id").map_err(|_| rquickjs::Error::FromJs {
             from: "",
@@ -385,8 +362,7 @@ impl<'js> rquickjs::FromJs<'js> for DecodeData {
             from: "",
             to: "",
             message: Some(format!(
-                "{} function most return a Object contains an array type named data",
-                JS_FUNCTION_NAME
+                "{JS_FUNCTION_NAME} function most return a Object contains an array type named data",
             )),
         })?;
         let data: Vec<DecodeDataItem> = obj.get("data")?;
@@ -450,16 +426,16 @@ impl<'js> From<rquickjs::CaughtError<'js>> for JsDecodeError {
         match value {
             rquickjs::CaughtError::Error(e) => Self::from(e),
             rquickjs::CaughtError::Exception(ex) => match ex.message() {
-                None => Self::Unknown(ex.to_string()),
+                None => Self::Unknown(ex.stack().unwrap_or_default()),
                 Some(s) => {
                     if s == "interrupted" {
                         Self::TimeOut { stack: ex.stack() }
                     } else {
-                        Self::Unknown(s)
+                        Self::Unknown(format!("{}: {s}", ex.stack().unwrap_or_default()))
                     }
                 }
             },
-            rquickjs::CaughtError::Value(v) => Self::Unknown(format!("value {:?}", v)),
+            rquickjs::CaughtError::Value(v) => Self::Unknown(format!("value {v:?}")),
         }
     }
 }
@@ -495,20 +471,19 @@ impl JsManager {
         ctx.ctx.with(|ctx| {
             let global = ctx.globals();
             ctx.eval::<(), _>(script)?;
-            let decode: Function = global.get(JS_FUNCTION_NAME)
-                .map_err(|_| JsDecodeError::Export(format!("most export {}", JS_FUNCTION_NAME)))?;
+            let decode: Function = global
+                .get(JS_FUNCTION_NAME)
+                .map_err(|_| JsDecodeError::Export(format!("most export {JS_FUNCTION_NAME}")))?;
             let data: DecodeData = decode.call((data,))?;
             Ok(data)
         })
     }
-
 }
 
 #[cfg(test)]
 mod tests {
     use crate::decode::{up_data_decode, JsManager, RawData};
     use crate::man::DecodeManager;
-    use common_define::Id;
 
     #[test]
     fn test_decode() {
@@ -523,15 +498,15 @@ mod tests {
     async fn test_js_decode() {
         let rt = JsManager::new();
         let m = DecodeManager::new(rt.clone());
-        let s = r#"export function decodeUplink(data) {
+        let s = r#"function decodeUplink(data) {
   return {
     data: [
-      { data: data.bytes[0], id: 0 },
-            { data: data.bytes[0], id: 2 }
+      { data: data.bytes[0], id: 1, unit: "Temp1", name: "a1"  },
+      { data: data.bytes[1], id: 2, unit: "Temp2", name: "a2"  },
     ]
   }
 }"#;
         let d = m.decode_with_code(s, RawData::new([1, 2, 3])).unwrap();
-        println!("{:?}", d);
+        println!("{d:?}");
     }
 }
