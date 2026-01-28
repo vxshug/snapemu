@@ -28,7 +28,7 @@ impl EmailCount {
     pub async fn update_email_send_count(&mut self) -> ApiResult {
         let count = if self.count >= Self::MAX_COUNT { Self::MAX_COUNT } else { self.count + 1 };
 
-        redis::cmd("SET")
+        let _: () = redis::cmd("SET")
             .arg(&self.key)
             .arg(count)
             .arg("EX")
@@ -72,7 +72,8 @@ impl UserStatus {
         }
         let code = hex::encode(code);
         let k = Self::code(email, &code);
-        redis::cmd("SET").arg(&k).arg("").arg("EX").arg(100).query_async(&mut conn).await?;
+        let _: () =
+            redis::cmd("SET").arg(&k).arg("").arg("EX").arg(100).query_async(&mut conn).await?;
         Ok(code)
     }
 
