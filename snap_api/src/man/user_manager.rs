@@ -20,7 +20,8 @@ pub struct UserResp {
 #[derive(Deserialize)]
 struct JsonResp {
     code: u32,
-    data: serde_json::Value,
+    result: serde_json::Value,
+    success: bool,
 }
 
 impl UserManager {
@@ -54,10 +55,10 @@ impl UserManager {
 
 impl UserManager {
     fn check_state<T: serde::de::DeserializeOwned>(rep: JsonResp) -> ApiResult<T> {
-        if rep.code == 200 {
-            Ok(serde_json::from_value(rep.data)?)
+        if rep.success {
+            Ok(serde_json::from_value(rep.result)?)
         } else {
-            Err(ApiError::User(serde_json::from_value(rep.data)?))
+            Err(ApiError::User("password not match".into()))
         }
     }
     pub(crate) async fn password_login(
@@ -121,13 +122,13 @@ impl UserManager {
     pub(crate) async fn check_email(&self, email: &str) -> ApiResult<Option<UserResp>> {
         let url = self.base.join("/api/v1/check/email").unwrap();
         let mut body = HashMap::new();
-        body.insert("ident", email);
+        body.insert("email", email);
         let res = self.client.post(url).json(&body).send().await?;
         let s = res.json::<JsonResp>().await?;
-        if s.code == 200 {
-            Ok(serde_json::from_value(s.data)?)
+        if s.success {
+            Ok(serde_json::from_value(s.result)?)
         } else {
-            Err(ApiError::User(serde_json::from_value(s.data)?))
+            Err(ApiError::User("email is exist".into()))
         }
     }
 

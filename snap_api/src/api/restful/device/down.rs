@@ -72,24 +72,18 @@ async fn post_down(
         DeviceService::query_one_with_auth(user.id, id, conn).await?;
     match device.device_type {
         DeviceType::Snap => {
-            let event = DownloadMessage {
-                eui: device.eui,
-                port: data.port.unwrap_or(2),
-                data: data.data,
-            };
+            let event =
+                DownloadMessage { eui: device.eui, port: data.port.unwrap_or(2), data: data.data };
             let data = serde_json::to_string(&event)?;
             let mut conn = state.redis.get().await?;
-            conn.publish(DeviceEvent::DOWN_TOPIC, data).await?;
+            let _: () = conn.publish(DeviceEvent::DOWN_TOPIC, data).await?;
         }
         DeviceType::LoRaNode => {
-            let event = DownloadMessage {
-                eui: device.eui,
-                port: data.port.unwrap_or(2),
-                data: data.data,
-            };
+            let event =
+                DownloadMessage { eui: device.eui, port: data.port.unwrap_or(2), data: data.data };
             let data = serde_json::to_string(&event)?;
             let mut conn = state.redis.get().await?;
-            conn.publish(DeviceEvent::DOWN_TOPIC, data).await?;
+            let _: () = conn.publish(DeviceEvent::DOWN_TOPIC, data).await?;
         }
         _ => {
             return Err(ApiError::User("unsupport device type".into()));

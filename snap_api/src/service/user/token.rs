@@ -162,7 +162,7 @@ impl TokenService {
         let mut redis = state.redis.get().await?;
 
         let r = RedisToken::new(user.id, &user.user_login);
-        redis.set_ex(Self::key(&access), &r, Self::ACCESS_EXPIRES as u64).await?;
+        let _: () = redis.set_ex(Self::key(&access), &r, Self::ACCESS_EXPIRES as u64).await?;
         Ok(Token { access_token: access, expires: Self::ACCESS_EXPIRES, refresh_token: refresh })
     }
 
@@ -187,7 +187,7 @@ impl TokenService {
 
         if !access_token.is_empty() {
             let token: Vec<_> = access_token.iter().map(|t| t.token.as_str()).collect();
-            redis.del(token.as_slice()).await?;
+            let _: () = redis.del(token.as_slice()).await?;
         }
         UserTokenEntity::delete_many()
             .filter(UserTokenColumn::UserId.eq(user_id))

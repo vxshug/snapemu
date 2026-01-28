@@ -89,7 +89,7 @@ impl NodeInfo {
             }
         };
         if redis::Cmd::exists(&k).query_async(conn).await? {
-            redis::cmd("HDEL").arg(&k).arg(key).query_async(conn).await?;
+            let _: () = redis::cmd("HDEL").arg(&k).arg(key).query_async(conn).await?;
         }
         Ok(())
     }
@@ -109,7 +109,7 @@ impl NodeInfo {
             }
         };
         if redis::Cmd::exists(&k).query_async(conn).await? {
-            redis::cmd("HSET").arg(&k).arg(key).arg(v).query_async(conn).await?;
+            let _: () = redis::cmd("HSET").arg(&k).arg(key).arg(v).query_async(conn).await?;
         }
         Ok(())
     }
